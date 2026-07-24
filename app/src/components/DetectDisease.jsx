@@ -378,9 +378,31 @@ Ensure all Tamil text is properly written in Tamil script. No extra text, just v
               toast.error("Invalid response from Gemini.");
             }
           } catch (gemErr) {
-            console.error(gemErr);
-            setError("Failed to get analysis from Gemini.");
-            toast.error("Failed to get analysis from Gemini.");
+            console.error("Gemini API failed, using fallback:", gemErr);
+            const fallbackLang = langCode === 'ta' ? 'tamil' : 'english';
+            const mockData = {
+              english: {
+                disease: predictedClass,
+                description: `Detected ${predictedClass} with ${(confidence * 100).toFixed(2)}% confidence. (Detailed AI analysis unavailable due to missing Gemini API key).`,
+                treatment: "Consult local agricultural experts for specific fungicides or treatments.",
+                advice: "Isolate affected plants if possible, ensure proper watering, and monitor for spread."
+              },
+              tamil: {
+                disease: predictedClass,
+                description: `Gemini AI API Key இல்லாததால் விரிவான பகுப்பாய்வு கிடைக்கவில்லை.`,
+                treatment: "உள்ளூர் விவசாய அதிகாரிகளை அணுகவும்.",
+                advice: "பாதிக்கப்பட்ட செடிகளை முடிந்தால் தனிமைப்படுத்தவும்."
+              },
+              spreadable: true
+            };
+            setAnalysisData(mockData);
+            setAnalysis({
+              detected: mockData[fallbackLang].disease,
+              description: mockData[fallbackLang].description,
+              treatment: mockData[fallbackLang].treatment,
+              advice: mockData[fallbackLang].advice
+            });
+            setIsSpreadable(mockData.spreadable);
           }
 
         } catch (err) {
