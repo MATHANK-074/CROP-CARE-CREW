@@ -1,0 +1,35 @@
+# Node modules
+node_modules/
+
+# Environment files
+*.env
+config.env
+
+# Python cache
+__pycache__/
+
+# VSCode settings
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build output
+dist/
+build/
+
+# Log files
+*.log
+
+# Model files (if you want to ignore large model binaries)
+*.mar
+*.h5
+*.pth
+*.pt
+*.ckpt
+image-based-ident-api/venv/
+image-based-ident-api/__pycache__
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/

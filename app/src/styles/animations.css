@@ -1,0 +1,103 @@
+/* Animations for sidebar and mobile navigation */
+@keyframes slideInLeft {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Horizontal-only slide animation to prevent vertical jumps */
+@keyframes slideInLeftHorizontal {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Apply animations to elements */
+.sidebar-animate-in {
+  animation: slideInLeft 0.3s ease forwards;
+}
+
+/* New container for sidebar without animation to prevent unwanted movement */
+.sidebar-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100%;
+}
+
+.mobile-header-animate {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+/* Pulse animation for notifications */
+@keyframes notificationPulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+}
+
+.notification-pulse {
+  animation: notificationPulse 1.5s infinite;
+}
+
+/* Animation for mobile bottom navigation */
+@keyframes slideUpBottomNav {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.bottom-nav-animate {
+  animation: slideUpBottomNav 0.3s ease forwards;
+}

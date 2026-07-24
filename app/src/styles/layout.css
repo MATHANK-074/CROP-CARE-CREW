@@ -1,0 +1,86 @@
+/* Additional styles for vertical header layout */
+.with-vertical-header {
+  transition: all 0.3s ease;
+}
+
+/* Responsive padding adjustments */
+/* Desktop (large screens) */
+@media (min-width: 1024px) {
+  .with-vertical-header {
+    padding-left: 16rem;
+    /* 256px - width of expanded vertical header */
+    padding-top: 0;
+  }
+}
+
+/* Tablet (medium screens) - show collapsed sidebar */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .with-vertical-header.with-collapsed-sidebar {
+    padding-left: 4rem;
+    /* 64px - width of collapsed vertical header */
+    padding-top: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .with-vertical-header {
+    padding-left: 0;
+    /* No sidebar padding on mobile */
+    padding-top: 3.5rem;
+    /* Space for mobile top header */
+    padding-bottom: 4rem;
+    /* Space for mobile bottom navigation */
+  }
+
+  /* When sidebar is open on mobile, push content slightly */
+  .with-vertical-header.sidebar-open {
+    padding-left: 0;
+  }
+
+  /* Add additional padding for pages with bottom navigation */
+  .with-vertical-header.with-mobile-bottom-nav {
+    padding-bottom: 4rem;
+  }
+}
+
+/* Tablet specific sidebar styles */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .sidebar-animate-in {
+    width: 4rem;
+    /* Collapsed width for tablet */
+  }
+
+  /* Fix vertical header position on tablet */
+  .sidebar-animate-in>div {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100% !important;
+  }
+}
+
+/* Transition only for width property to avoid unwanted movements */
+.transition-width {
+  transition-property: width;
+  transition-timing-function: ease;
+  transition-duration: 300ms;
+}
+
+/* Custom scrollbar for a more modern look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

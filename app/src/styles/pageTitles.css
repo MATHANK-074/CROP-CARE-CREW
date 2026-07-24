@@ -1,0 +1,32 @@
+/* Page title styling */
+.page-title-container {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.page-title {
+  margin: 0;
+  color: var(--color-primary-600);
+  font-weight: 600;
+  line-height: 1.2;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Responsive font sizes */
+@media (max-width: 767px) {
+  .page-title {
+    font-size: 1.25rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .page-title {
+    font-size: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-title {
+    font-size: 1.75rem;
+  }
+}
