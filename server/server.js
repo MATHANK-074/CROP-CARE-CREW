@@ -75,6 +75,8 @@ app.use('/api/prices', require('./routes/prices'));
 app.use('/api/tasks', require('./routes/tasks'));
 // Farming assistant chatbot
 app.use('/api/chat', require('./routes/chat'));
+// Government Schemes module
+app.use('/api/schemes', require('./routes/schemes'));
 
 // Simple task generation endpoint
 app.post('/api/tasks/generate', async (req, res) => {

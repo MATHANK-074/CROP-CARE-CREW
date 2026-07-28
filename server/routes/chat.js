@@ -18,6 +18,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const auth = require('../middleware/auth');
+const Scheme = require('../models/Scheme');
 // Use dynamic import for fetch since node-fetch v3 is ESM only
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
@@ -930,37 +931,66 @@ router.post('/', async (req, res) => {
       locationContext = `\n\nNote: User location unavailable (${locationError}). For weather requests, ask user to specify a location.`;
     }
 
+    // --- START OF AI RAG (ANTI-HALLUCINATION) ---
+    // Search the database for relevant Government Schemes if the user mentions keywords
+    let schemeContext = '';
+    const schemeKeywords = ['scheme', 'subsidy', 'loan', 'kisan', 'insurance', 'government', 'pm', 'grant', 'yojana', 'card'];
+    const messageLower = translatedMessage.toLowerCase();
+    
+    if (schemeKeywords.some(keyword => messageLower.includes(keyword))) {
+      try {
+        console.log('RAG: User asked about schemes. Searching database...');
+        // Use the Text Index we created in Step 1 to find the most relevant schemes
+        const relevantSchemes = await Scheme.find(
+          { $text: { $search: translatedMessage }, isActive: true },
+          { score: { $meta: "textScore" } }
+        )
+        .sort({ score: { $meta: "textScore" } })
+        .limit(2); // Only take top 2 to avoid overwhelming Gemini's context window
+
+        if (relevantSchemes.length > 0) {
+          schemeContext = '\n\nIMPORTANT CONTEXT FROM DATABASE (USE THIS TO ANSWER THE USER ACCURATELY AND DO NOT MAKE UP FAKE SCHEMES):\n';
+          relevantSchemes.forEach(scheme => {
+            schemeContext += `- Scheme Name: ${scheme.title}\n  Category: ${scheme.category}\n  Description: ${scheme.description}\n  Eligibility: ${scheme.eligibility.join(', ')}\n  Benefits: ${scheme.benefits.join(', ')}\n  Apply: ${scheme.officialWebsite}\n\n`;
+          });
+          console.log('RAG Context Injected!');
+        }
+      } catch (err) {
+        console.error('RAG Search Error:', err);
+      }
+    }
+    // --- END OF AI RAG ---
+
     // Use translated message for API processing but keep language context
     const languageNote = isTamilMessage ?
       '\n\nNOTE: User originally communicated in Tamil. Respond in Tamil when appropriate, but process commands in English for consistency.' :
       '';
 
     // Create simple prompt using translated message
-    const prompt = `${SYSTEM_PROMPT}${languageNote}${locationContext}\n\nUser message (translated to English): ${translatedMessage}\n\nRespond with helpful farming advice. If the user wants to perform an action, include the ACTION: format in your response.`;
+    const prompt = `${SYSTEM_PROMPT}${languageNote}${locationContext}${schemeContext}\n\nUser message (translated to English): ${translatedMessage}\n\nRespond with helpful farming advice. If the user wants to perform an action, include the ACTION: format in your response.`;
 
     // Use same pattern as other working Gemini calls in the codebase
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
+    let geminiText = "";
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      } else {
+        console.warn('Gemini API returned error status:', response.status);
       }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API error:', response.status, response.statusText, errorText);
-      throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    if (!geminiText) {
-      throw new Error('Empty response from AI service');
+    } catch (apiError) {
+      console.warn('Gemini API fetch failed, bypassing:', apiError);
     }
 
     let finalMessage = geminiText;
@@ -1203,6 +1233,10 @@ router.post('/', async (req, res) => {
           finalMessage += '\n\n' + actionResult.message;
         }
       }
+    }
+
+    if (!finalMessage || finalMessage.trim() === '') {
+      finalMessage = "I am your farming assistant! I'm currently having a bit of trouble connecting to my AI brain, but I can still help you with standard commands like: 'weather in [city]', 'check [crop] prices', or 'add a crop'.";
     }
 
     res.json({
