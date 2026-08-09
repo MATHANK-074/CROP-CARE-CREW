@@ -176,18 +176,12 @@ router.get('/prices', async (req, res) => {
     const DATA_ID = '9ef84268-d588-465a-a308-a864a43d0070';
     const commodityList = commodities.split(',').map(s => s.trim()).filter(Boolean);
 
-    // Helper with timeout using AbortController
-    const fetchWithTimeout = async (url, timeout = 8000) => {
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), timeout);
-      try {
-        const r = await fetch(url, { signal: controller.signal });
-        clearTimeout(id);
-        return r;
-      } catch (e) {
-        clearTimeout(id);
-        throw e;
-      }
+    // Strict timeout to prevent hanging UI if Gov API is slow or blocked
+    const fetchWithTimeout = async (url, timeout = 4000) => {
+      return Promise.race([
+        fetch(url),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Gov API Timeout')), timeout))
+      ]);
     };
 
     const results = await Promise.all(commodityList.map(async (commodity) => {

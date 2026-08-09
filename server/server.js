@@ -57,7 +57,7 @@ app.get('/api/health-check', (req, res) => {
 });
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true, family: 4 })
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB error:', err));
 
@@ -77,6 +77,10 @@ app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/chat', require('./routes/chat'));
 // Government Schemes module
 app.use('/api/schemes', require('./routes/schemes'));
+// Livestock module
+app.use('/api/livestock', require('./routes/livestock'));
+// Reproductive AI module
+app.use('/api/reproductive', require('./routes/reproductive'));
 
 // Simple task generation endpoint
 app.post('/api/tasks/generate', async (req, res) => {

@@ -23,6 +23,8 @@ import TaskDetail from './components/tasks/TaskDetail'
 import Calendar from './components/tasks/Calendar'
 import AppLayout from './components/AppLayout'
 import ErrorBoundary from './components/ErrorBoundary'
+import LivestockDashboard from './pages/LivestockDashboard';
+import ReproductiveDashboard from './pages/ReproductiveDashboard';
 // Import hooks and utilities
 import useDocumentTitle from './hooks/useDocumentTitle'
 
@@ -72,6 +74,8 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/livestock" element={<LivestockDashboard />} />
+              <Route path="/reproductive-ai" element={<ReproductiveDashboard />} />
 
               {/* Chatbot Demo */}
               <Route path="/chatbot-demo" element={<ChatbotDemo />} />

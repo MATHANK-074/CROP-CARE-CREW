@@ -19,7 +19,8 @@ import {
   FaUser,
   FaCog,
   FaTasks,
-  FaCalendarAlt
+  FaCalendarAlt,
+  FaPaw as FaCow
 } from 'react-icons/fa';
 
 const VerticalHeader = ({ collapsed: propCollapsed }) => {
@@ -179,6 +180,26 @@ const VerticalHeader = ({ collapsed: propCollapsed }) => {
             >
               <FaTasks className={`${collapsed ? 'text-xl' : 'text-lg mr-3'}`} />
               {!collapsed && <span>{t('tasks.tasks')}</span>}
+            </Link>
+          </li>
+          <li>
+            <Link
+              to="/livestock"
+              className={`flex items-center ${collapsed ? 'justify-center' : 'px-4'} py-3 ${isActive('/livestock') ? 'bg-green-50 text-green-700' : 'text-gray-700 hover:bg-gray-50'}`}
+            >
+              <FaCow className={`${collapsed ? 'text-xl' : 'text-lg mr-3'}`} />
+              {!collapsed && <span>{t('sidebar.livestock', 'Livestock')}</span>}
+            </Link>
+          </li>
+          <li>
+            <Link
+              to="/reproductive-ai"
+              className={`flex items-center ${collapsed ? 'justify-center' : 'px-4'} py-3 ${isActive('/reproductive-ai') ? 'bg-green-50 text-green-700' : 'text-gray-700 hover:bg-gray-50'}`}
+            >
+              <div className={`${collapsed ? 'text-xl' : 'text-lg mr-3 flex items-center justify-center'}`}>
+                <span>🧠</span>
+              </div>
+              {!collapsed && <span>Reproductive AI</span>}
             </Link>
           </li>
         </ul>
