@@ -79,6 +79,9 @@ app.use('/api/chat', require('./routes/chat'));
 app.use('/api/schemes', require('./routes/schemes'));
 // Livestock module
 app.use('/api/livestock', require('./routes/livestock'));
+// Feed module
+app.use('/api/feed', require('./routes/feed'));
+app.use('/api/feed-optimization', require('./routes/feedOptimization'));
 // Reproductive AI module
 app.use('/api/reproductive', require('./routes/reproductive'));
 

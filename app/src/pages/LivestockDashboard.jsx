@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   FaPaw as FaCow, FaSyringe, FaPlus, FaExclamationTriangle, 
-  FaCheckCircle, FaSearch, FaHistory, FaBabyCarriage, FaStethoscope
+  FaCheckCircle, FaSearch, FaHistory, FaBabyCarriage, FaStethoscope,
+  FaLeaf, FaChartLine
 } from 'react-icons/fa';
 import LivestockCalendar from '../components/livestock/LivestockCalendar';
+import FeedOptimizationDashboard from '../components/livestock/FeedOptimizationDashboard';
+import ReproductiveDashboard from './ReproductiveDashboard';
 
 const buildApiUrl = (path) => {
   return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api${path}`;
@@ -29,8 +32,36 @@ const LivestockDashboard = () => {
   const [medicalForm, setMedicalForm] = useState({ type: 'Vaccine', name: '', date: '', notes: '' });
   const [animalHistory, setAnimalHistory] = useState({ breeding: [], medical: [] });
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [evaluating, setEvaluating] = useState(false);
   const [error, setError] = useState(null);
+
+  const runAIEvaluation = async () => {
+    if (!selectedAnimal) return;
+    setEvaluating(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`/livestock/${selectedAnimal._id}/viability`), {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedAnimal(prev => ({ ...prev, aiHealthEvaluation: data }));
+        setLivestockList(prevList => prevList.map(a => a._id === selectedAnimal._id ? { ...a, aiHealthEvaluation: data } : a));
+      } else {
+        alert('Failed to run AI Evaluation');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error running AI Evaluation');
+    } finally {
+      setEvaluating(false);
+    }
+  };
   
+  // Tabs: 'herd', 'feed', 'finance'
+  const [activeTab, setActiveTab] = useState('herd');
+
   // Filtering states
   const [filterType, setFilterType] = useState('All'); // 'All', 'Milking', 'Pregnant', 'Calf'
   const [searchQuery, setSearchQuery] = useState('');
@@ -209,212 +240,247 @@ const LivestockDashboard = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-800 flex items-center">
             <FaCow className="mr-3 text-green-600" />
-            {t('livestock.title', 'Livestock Fleet Dashboard')}
+            Livestock Dashboard
           </h1>
-          <p className="text-gray-500 mt-2">{t('livestock.subtitle', 'Manage inventory, automated deliveries, and medical alerts.')}</p>
+          <p className="text-gray-500 mt-2">Manage your herd, feed inventory, and medical records.</p>
         </div>
+      </div>
+
+      {/* TABS */}
+      <div className="flex space-x-4 mb-8 border-b border-gray-200">
         <button 
-          onClick={() => setShowAddModal(true)}
-          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg flex items-center shadow-md transition-colors"
+          onClick={() => setActiveTab('herd')}
+          className={`pb-3 px-4 font-medium text-lg flex items-center transition-colors border-b-2 ${activeTab === 'herd' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
         >
-          <FaPlus className="mr-2" /> {t('livestock.add_animal', 'Add Animal')}
+          <FaCow className="mr-2" /> {t('livestock.tab_herd', 'Herd Directory')}
+        </button>
+        <button 
+          onClick={() => setActiveTab('feed')}
+          className={`pb-3 px-4 font-medium text-lg flex items-center transition-colors border-b-2 ${activeTab === 'feed' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+        >
+          <FaLeaf className="mr-2" /> {t('livestock.tab_feed', 'Feed Management')}
+        </button>
+        <button 
+          onClick={() => setActiveTab('reproductive')}
+          className={`pb-3 px-4 font-medium text-lg flex items-center transition-colors border-b-2 ${activeTab === 'reproductive' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+        >
+          <FaBabyCarriage className="mr-2" /> {t('livestock.tab_reproductive', 'Reproductive AI')}
         </button>
       </div>
 
-      {/* Fleet Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div 
-          onClick={() => setFilterType('All')}
-          className={`bg-white rounded-xl p-6 shadow-sm border cursor-pointer transition-all hover:shadow-md flex items-center ${filterType === 'All' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-100'}`}
-        >
-          <div className="p-4 rounded-full bg-blue-100 text-blue-600 mr-4">
-            <FaCow size={24} />
-          </div>
-          <div>
-            <p className="text-gray-500 text-sm">{t('livestock.total_animals', 'Total Animals')}</p>
-            <h3 className="text-2xl font-bold text-gray-800">{stats.totalAnimals}</h3>
-          </div>
-        </div>
-        <div 
-          onClick={() => setFilterType('Milking')}
-          className={`bg-white rounded-xl p-6 shadow-sm border cursor-pointer transition-all hover:shadow-md flex items-center ${filterType === 'Milking' ? 'border-green-500 ring-2 ring-green-200' : 'border-gray-100'}`}
-        >
-          <div className="p-4 rounded-full bg-green-100 text-green-600 mr-4">
-            <FaCheckCircle size={24} />
-          </div>
-          <div>
-            <p className="text-gray-500 text-sm">{t('livestock.milking_cows', 'Milking Cows')}</p>
-            <h3 className="text-2xl font-bold text-gray-800">{stats.milkingCows}</h3>
-          </div>
-        </div>
-        <div 
-          onClick={() => setFilterType('Pregnant')}
-          className={`bg-white rounded-xl p-6 shadow-sm border cursor-pointer transition-all hover:shadow-md flex items-center ${filterType === 'Pregnant' ? 'border-purple-500 ring-2 ring-purple-200' : 'border-gray-100'}`}
-        >
-          <div className="p-4 rounded-full bg-purple-100 text-purple-600 mr-4">
-            <FaBabyCarriage size={24} />
-          </div>
-          <div>
-            <p className="text-gray-500 text-sm">{t('livestock.pregnant_cows', 'Pregnant Cows')}</p>
-            <h3 className="text-2xl font-bold text-gray-800">{stats.pregnantCows}</h3>
-          </div>
-        </div>
-        <div 
-          onClick={() => setFilterType('Calf')}
-          className={`bg-white rounded-xl p-6 shadow-sm border cursor-pointer transition-all hover:shadow-md flex items-center ${filterType === 'Calf' ? 'border-yellow-500 ring-2 ring-yellow-200' : 'border-gray-100'}`}
-        >
-          <div className="p-4 rounded-full bg-yellow-100 text-yellow-600 mr-4">
-            <FaCow size={20} />
-          </div>
-          <div>
-            <p className="text-gray-500 text-sm">{t('livestock.calves', 'Calves')}</p>
-            <h3 className="text-2xl font-bold text-gray-800">{stats.calves}</h3>
-          </div>
-        </div>
-      </div>
+      {activeTab === 'feed' && (
+        <FeedOptimizationDashboard />
+      )}
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Livestock Table (Spans 2 columns) */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-800">{t('livestock.inventory_directory', 'Inventory Directory')} {filterType !== 'All' && <span className="text-sm font-normal text-green-600 ml-2">({filterType})</span>}</h2>
-            <div className="relative">
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={t('livestock.search_placeholder', 'Search Tag ID...')} className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
-              <FaSearch className="absolute left-3 top-3 text-gray-400" />
+      {activeTab === 'reproductive' && (
+        <ReproductiveDashboard />
+      )}
+
+      {activeTab === 'herd' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="flex justify-end mb-4">
+              <button 
+                onClick={() => setShowAddModal(true)}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg flex items-center shadow-md transition-colors"
+              >
+                <FaPlus className="mr-2" /> {t('livestock.add_animal', 'Add Animal')}
+              </button>
+            </div>
+
+            {/* Fleet Metrics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              <div 
+                onClick={() => setFilterType('All')}
+                className={`bg-white rounded-xl p-6 shadow-sm border cursor-pointer transition-all hover:shadow-md flex items-center ${filterType === 'All' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-100'}`}
+              >
+                <div className="p-4 rounded-full bg-blue-100 text-blue-600 mr-4">
+                  <FaCow size={24} />
+                </div>
+                <div>
+                  <p className="text-gray-500 text-sm">{t('livestock.total_animals', 'Total Animals')}</p>
+                  <h3 className="text-2xl font-bold text-gray-800">{stats.totalAnimals}</h3>
+                </div>
+              </div>
+              <div 
+                onClick={() => setFilterType('Milking')}
+                className={`bg-white rounded-xl p-6 shadow-sm border cursor-pointer transition-all hover:shadow-md flex items-center ${filterType === 'Milking' ? 'border-green-500 ring-2 ring-green-200' : 'border-gray-100'}`}
+              >
+                <div className="p-4 rounded-full bg-green-100 text-green-600 mr-4">
+                  <FaCheckCircle size={24} />
+                </div>
+                <div>
+                  <p className="text-gray-500 text-sm">{t('livestock.milking_cows', 'Milking Cows')}</p>
+                  <h3 className="text-2xl font-bold text-gray-800">{stats.milkingCows}</h3>
+                </div>
+              </div>
+              <div 
+                onClick={() => setFilterType('Pregnant')}
+                className={`bg-white rounded-xl p-6 shadow-sm border cursor-pointer transition-all hover:shadow-md flex items-center ${filterType === 'Pregnant' ? 'border-purple-500 ring-2 ring-purple-200' : 'border-gray-100'}`}
+              >
+                <div className="p-4 rounded-full bg-purple-100 text-purple-600 mr-4">
+                  <FaBabyCarriage size={24} />
+                </div>
+                <div>
+                  <p className="text-gray-500 text-sm">{t('livestock.pregnant_cows', 'Pregnant Cows')}</p>
+                  <h3 className="text-2xl font-bold text-gray-800">{stats.pregnantCows}</h3>
+                </div>
+              </div>
+              <div 
+                onClick={() => setFilterType('Calf')}
+                className={`bg-white rounded-xl p-6 shadow-sm border cursor-pointer transition-all hover:shadow-md flex items-center ${filterType === 'Calf' ? 'border-yellow-500 ring-2 ring-yellow-200' : 'border-gray-100'}`}
+              >
+                <div className="p-4 rounded-full bg-yellow-100 text-yellow-600 mr-4">
+                  <FaCow size={20} />
+                </div>
+                <div>
+                  <p className="text-gray-500 text-sm">{t('livestock.calves', 'Calves')}</p>
+                  <h3 className="text-2xl font-bold text-gray-800">{stats.calves}</h3>
+                </div>
+              </div>
+            </div>
+
+            {/* Livestock Table */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+                <h2 className="text-xl font-bold text-gray-800">{t('livestock.inventory_directory', 'Inventory Directory')} {filterType !== 'All' && <span className="text-sm font-normal text-green-600 ml-2">({filterType})</span>}</h2>
+                <div className="relative">
+                  <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={t('livestock.search_placeholder', 'Search Tag ID...')} className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+                  <FaSearch className="absolute left-3 top-3 text-gray-400" />
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-600 text-sm">
+                      <th className="p-4 font-semibold">{t('livestock.table_tag_id', 'Tag ID')}</th>
+                      <th className="p-4 font-semibold">{t('livestock.table_age_price', 'Age / Price')}</th>
+                      <th className="p-4 font-semibold">{t('livestock.table_status', 'Status')}</th>
+                      <th className="p-4 font-semibold">{t('livestock.table_action', 'Action')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLivestock.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="p-8 text-center text-gray-500">{t('livestock.no_animals', 'No animals in inventory.')}</td>
+                      </tr>
+                    ) : (
+                      filteredLivestock.map((animal) => (
+                        <tr key={animal._id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                          <td className="p-4 font-medium text-gray-800">
+                            {animal.tagId}
+                            <div className="text-xs text-gray-500">{animal.category} • {animal.breed || 'Mixed'}</div>
+                          </td>
+                          <td className="p-4 text-sm text-gray-600">
+                            {animal.ageString || '-'} <br/>
+                            {animal.buyingPrice ? <span className="text-green-600 font-medium">₹{animal.buyingPrice}</span> : '-'}
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              animal.status === 'Milking' ? 'bg-green-100 text-green-700' :
+                              animal.status === 'Pregnant' ? 'bg-purple-100 text-purple-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {animal.status}
+                            </span>
+                          </td>
+                          <td className="p-4 flex space-x-2">
+                            {animal.gender === 'Female' && animal.status !== 'Pregnant' && (
+                              <button onClick={() => handleLogBreeding(animal._id, 'Artificial Insemination')} className="text-sm text-blue-600 hover:text-blue-800 flex items-center bg-blue-50 px-2 py-1 rounded">
+                                <FaSyringe className="mr-1"/> {t('livestock.log_ai', 'Log AI')}
+                              </button>
+                            )}
+                            {animal.status === 'Pregnant' && (
+                              <button onClick={() => handleLogDelivery(animal._id)} className="text-sm text-pink-600 hover:text-pink-800 flex items-center bg-pink-50 px-2 py-1 rounded">
+                                <FaBabyCarriage className="mr-1"/> {t('livestock.log_delivery', 'Log Delivery')}
+                              </button>
+                            )}
+                            <button onClick={() => { setSelectedAnimal(animal); setShowMedicalModal(true); }} className="text-sm text-green-600 hover:text-green-800 flex items-center bg-green-50 px-2 py-1 rounded">
+                              <FaStethoscope className="mr-1"/> {t('livestock.log_medical', 'Log Meds')}
+                            </button>
+                            <button onClick={() => fetchAnimalHistory(animal)} className="text-sm text-gray-600 hover:text-gray-800 flex items-center bg-gray-50 px-2 py-1 rounded border border-gray-200">
+                              <FaHistory className="mr-1"/> {t('livestock.view_history', 'History')}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-50 text-gray-600 text-sm">
-                  <th className="p-4 font-semibold">{t('livestock.table_tag_id', 'Tag ID')}</th>
-                  <th className="p-4 font-semibold">{t('livestock.table_age_price', 'Age / Price')}</th>
-                  <th className="p-4 font-semibold">{t('livestock.table_status', 'Status')}</th>
-                  <th className="p-4 font-semibold">{t('livestock.table_action', 'Action')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLivestock.length === 0 ? (
-                  <tr>
-                    <td colSpan="4" className="p-8 text-center text-gray-500">{t('livestock.no_animals', 'No animals in inventory.')}</td>
-                  </tr>
-                ) : (
-                  filteredLivestock.map((animal) => (
-                    <tr key={animal._id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="p-4 font-medium text-gray-800">
-                        {animal.tagId}
-                        <div className="text-xs text-gray-500">{animal.category} • {animal.breed || 'Mixed'}</div>
-                      </td>
-                      <td className="p-4 text-sm text-gray-600">
-                        {animal.ageString || '-'} <br/>
-                        {animal.buyingPrice ? <span className="text-green-600 font-medium">₹{animal.buyingPrice}</span> : '-'}
-                      </td>
-                      <td className="p-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          animal.status === 'Milking' ? 'bg-green-100 text-green-700' :
-                          animal.status === 'Pregnant' ? 'bg-purple-100 text-purple-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                          {animal.status}
-                        </span>
-                      </td>
-                      <td className="p-4 flex space-x-2">
-                        {animal.gender === 'Female' && animal.status !== 'Pregnant' && (
-                          <button onClick={() => handleLogBreeding(animal._id, 'Artificial Insemination')} className="text-sm text-blue-600 hover:text-blue-800 flex items-center bg-blue-50 px-2 py-1 rounded">
-                            <FaSyringe className="mr-1"/> {t('livestock.log_ai', 'Log AI')}
-                          </button>
-                        )}
-                        {animal.status === 'Pregnant' && (
-                          <button onClick={() => handleLogDelivery(animal._id)} className="text-sm text-pink-600 hover:text-pink-800 flex items-center bg-pink-50 px-2 py-1 rounded">
-                            <FaBabyCarriage className="mr-1"/> {t('livestock.log_delivery', 'Log Delivery')}
-                          </button>
-                        )}
-                        <button onClick={() => { setSelectedAnimal(animal); setShowMedicalModal(true); }} className="text-sm text-green-600 hover:text-green-800 flex items-center bg-green-50 px-2 py-1 rounded">
-                          <FaStethoscope className="mr-1"/> {t('livestock.log_medical', 'Log Meds')}
-                        </button>
-                        <button onClick={() => fetchAnimalHistory(animal)} className="text-sm text-gray-600 hover:text-gray-800 flex items-center bg-gray-50 px-2 py-1 rounded border border-gray-200">
-                          <FaHistory className="mr-1"/> {t('livestock.view_history', 'History')}
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+
+          {/* Action Center / Alerts Panel */}
+          <div className="space-y-6">
+            
+            {/* Calendar Widget */}
+            <LivestockCalendar alerts={alerts} />
+
+            {/* Medical Alerts Panel */}
+            <div className="bg-white rounded-xl shadow-sm border border-red-100 p-6 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
+              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <FaStethoscope className="text-red-500 mr-2" />
+                {t('livestock.medical_alerts_title', 'Medical Alerts')}
+              </h2>
+              {alerts.medical.length === 0 ? (
+                <p className="text-gray-500 text-sm">{t('livestock.no_medical_alerts', 'No pending medical tasks.')}</p>
+              ) : (
+                <ul className="space-y-3">
+                  {alerts.medical.map(alert => (
+                    <li key={alert._id} className="p-3 bg-red-50 rounded-lg text-sm border border-red-100">
+                      <span className="font-bold text-gray-800">{alert.livestock.tagId}</span> needs <span className="font-bold text-red-600">Pre-Delivery Care / Drying Off</span> (Due before {new Date(alert.expectedDeliveryDate).toLocaleDateString()})
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-orange-100 p-6 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <FaExclamationTriangle className="text-orange-500 mr-2" />
+                {t('livestock.upcoming_deliveries_title', 'Upcoming Deliveries (Next 7 Days)')}
+              </h2>
+              {alerts.deliveries.length === 0 ? (
+                <p className="text-gray-500 text-sm">{t('livestock.no_upcoming_deliveries', 'No expected deliveries this week.')}</p>
+              ) : (
+                <ul className="space-y-3">
+                  {alerts.deliveries.map(alert => (
+                    <li key={alert._id} className="p-3 bg-orange-50 rounded-lg text-sm border border-orange-100">
+                      <span className="font-bold text-gray-800">{alert.livestock.tagId}</span> is due around <span className="font-bold text-orange-600">{new Date(alert.expectedDeliveryDate).toLocaleDateString()}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-blue-100 p-6 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <FaHistory className="text-blue-500 mr-2" />
+                {t('livestock.heat_cycle_title', 'Heat Cycle Checks')}
+              </h2>
+              {alerts.heatChecks.length === 0 ? (
+                <p className="text-gray-500 text-sm">{t('livestock.no_heat_cycles', 'No cows predicted for heat this week.')}</p>
+              ) : (
+                <ul className="space-y-3">
+                  {alerts.heatChecks.map(alert => (
+                    <li key={alert._id} className="p-3 bg-blue-50 rounded-lg text-sm border border-blue-100">
+                      Check <span className="font-bold text-gray-800">{alert.livestock.tagId}</span> for heat signs (Due {new Date(alert.nextHeatPredictionDate).toLocaleDateString()})
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
-
-        {/* Action Center / Alerts Panel */}
-        <div className="space-y-6">
-          
-          {/* Calendar Widget */}
-          <LivestockCalendar alerts={alerts} />
-
-          {/* Medical Alerts Panel */}
-          <div className="bg-white rounded-xl shadow-sm border border-red-100 p-6 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
-            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-              <FaStethoscope className="text-red-500 mr-2" />
-              {t('livestock.medical_alerts_title', 'Medical Alerts')}
-            </h2>
-            {alerts.medical.length === 0 ? (
-              <p className="text-gray-500 text-sm">{t('livestock.no_medical_alerts', 'No pending medical tasks.')}</p>
-            ) : (
-              <ul className="space-y-3">
-                {alerts.medical.map(alert => (
-                  <li key={alert._id} className="p-3 bg-red-50 rounded-lg text-sm border border-red-100">
-                    <span className="font-bold text-gray-800">{alert.livestock.tagId}</span> needs <span className="font-bold text-red-600">Pre-Delivery Care / Drying Off</span> (Due before {new Date(alert.expectedDeliveryDate).toLocaleDateString()})
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-orange-100 p-6 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
-            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-              <FaExclamationTriangle className="text-orange-500 mr-2" />
-              {t('livestock.upcoming_deliveries_title', 'Upcoming Deliveries (Next 7 Days)')}
-            </h2>
-            {alerts.deliveries.length === 0 ? (
-              <p className="text-gray-500 text-sm">{t('livestock.no_upcoming_deliveries', 'No expected deliveries this week.')}</p>
-            ) : (
-              <ul className="space-y-3">
-                {alerts.deliveries.map(alert => (
-                  <li key={alert._id} className="p-3 bg-orange-50 rounded-lg text-sm border border-orange-100">
-                    <span className="font-bold text-gray-800">{alert.livestock.tagId}</span> is due around <span className="font-bold text-orange-600">{new Date(alert.expectedDeliveryDate).toLocaleDateString()}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-blue-100 p-6 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-              <FaHistory className="text-blue-500 mr-2" />
-              {t('livestock.heat_cycle_title', 'Heat Cycle Checks')}
-            </h2>
-            {alerts.heatChecks.length === 0 ? (
-              <p className="text-gray-500 text-sm">{t('livestock.no_heat_cycles', 'No cows predicted for heat this week.')}</p>
-            ) : (
-              <ul className="space-y-3">
-                {alerts.heatChecks.map(alert => (
-                  <li key={alert._id} className="p-3 bg-blue-50 rounded-lg text-sm border border-blue-100">
-                    Check <span className="font-bold text-gray-800">{alert.livestock.tagId}</span> for heat signs (Due {new Date(alert.nextHeatPredictionDate).toLocaleDateString()})
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Add Animal Modal */}
       {showAddModal && (
@@ -550,6 +616,52 @@ const LivestockDashboard = () => {
               <div className="text-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-green-500 mx-auto"></div></div>
             ) : (
               <div className="space-y-8">
+                
+                {/* AI Health Evaluation */}
+                <div>
+                  <div className="flex justify-between items-center border-b pb-2 mb-3">
+                    <h3 className="text-lg font-bold text-gray-800 flex items-center">
+                      <FaLeaf className="mr-2 text-green-600"/> {t('livestock.ai_viability', 'AI Health & Viability Evaluation')}
+                    </h3>
+                    <button 
+                      onClick={runAIEvaluation}
+                      disabled={evaluating}
+                      className={`px-3 py-1 rounded text-sm font-bold text-white transition-colors ${evaluating ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                    >
+                      {evaluating ? t('livestock.analyzing', 'Analyzing...') : (selectedAnimal.aiHealthEvaluation?.lastEvaluated ? t('livestock.reevaluate', 'Re-evaluate') : t('livestock.run_evaluation', 'Run AI Evaluation'))}
+                    </button>
+                  </div>
+                  
+                  {selectedAnimal.aiHealthEvaluation?.lastEvaluated ? (
+                    <div className={`p-4 rounded-xl border ${
+                      selectedAnimal.aiHealthEvaluation.recommendation === 'Keep' ? 'bg-green-50 border-green-200' :
+                      selectedAnimal.aiHealthEvaluation.recommendation === 'Sell/Cull' ? 'bg-red-50 border-red-200' :
+                      'bg-yellow-50 border-yellow-200'
+                    }`}>
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="text-sm text-gray-500 uppercase tracking-wide">{t('livestock.recommendation', 'AI Recommendation')}</div>
+                          <div className={`text-2xl font-bold ${
+                            selectedAnimal.aiHealthEvaluation.recommendation === 'Keep' ? 'text-green-800' :
+                            selectedAnimal.aiHealthEvaluation.recommendation === 'Sell/Cull' ? 'text-red-800' :
+                            'text-yellow-800'
+                          }`}>
+                            {selectedAnimal.aiHealthEvaluation.recommendation}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-gray-500 uppercase tracking-wide">{t('livestock.health_score', 'Health Score')}</div>
+                          <div className="text-2xl font-bold text-gray-800">{selectedAnimal.aiHealthEvaluation.healthScore}/100</div>
+                        </div>
+                      </div>
+                      <p className="text-gray-700 mt-2">{selectedAnimal.aiHealthEvaluation.reasoning}</p>
+                      <p className="text-xs text-gray-400 mt-3 text-right">{t('livestock.last_evaluated', 'Last evaluated:')} {new Date(selectedAnimal.aiHealthEvaluation.lastEvaluated).toLocaleString()}</p>
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-sm">{t('livestock.no_eval_yet', 'No AI evaluation has been run for this animal yet. Click the button to analyze its medical history.')}</p>
+                  )}
+                </div>
+
                 {/* Medical History */}
                 <div>
                   <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center border-b pb-2"><FaStethoscope className="mr-2 text-green-600"/> Medical & Injection History</h3>

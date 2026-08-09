@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const Livestock = require('../models/Livestock');
 const BreedingRecord = require('../models/BreedingRecord');
 const MedicalRecord = require('../models/MedicalRecord');
+const { generateHealthEvaluation } = require('../utils/healthEvaluationGenerator');
 
 // GET /api/livestock - Get all livestock for the authenticated user
 router.get('/', auth, async (req, res) => {
@@ -262,6 +263,41 @@ router.post('/:id/delivery', auth, async (req, res) => {
   } catch (error) {
     console.error('Error logging delivery:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/livestock/:id/viability - Generate AI Health Viability
+router.post('/:id/viability', auth, async (req, res) => {
+  try {
+    const livestockId = req.params.id;
+    const cow = await Livestock.findOne({ _id: livestockId, user: req.user.id });
+    if (!cow) {
+      return res.status(404).json({ message: 'Livestock not found' });
+    }
+
+    const medicalRecords = await MedicalRecord.find({ livestock: livestockId, user: req.user.id }).sort({ date: -1 });
+
+    const evaluation = await generateHealthEvaluation(cow, medicalRecords);
+    console.log("AI Evaluation result:", evaluation);
+
+    // Map keys to handle potential capitalization issues from Gemini
+    const mappedEvaluation = {
+      recommendation: evaluation.recommendation || evaluation.Recommendation || 'Monitor',
+      healthScore: evaluation.healthScore || evaluation.HealthScore || evaluation.score || 0,
+      reasoning: evaluation.reasoning || evaluation.Reasoning || 'No reasoning provided.'
+    };
+
+    // Save to the DB
+    cow.set('aiHealthEvaluation', {
+      ...mappedEvaluation,
+      lastEvaluated: new Date()
+    });
+    await cow.save();
+
+    res.json(cow.aiHealthEvaluation);
+  } catch (error) {
+    console.error('Error running AI viability check:', error);
+    res.status(500).json({ message: 'Server error during AI evaluation' });
   }
 });
 

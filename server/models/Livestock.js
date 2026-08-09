@@ -42,6 +42,13 @@ const livestockSchema = new mongoose.Schema({
   ageString: {
     type: String // e.g. "3 years 2 months"
   },
+  vaccinations: [{ name: String, date: Date, nextDueDate: Date }],
+  aiHealthEvaluation: {
+    recommendation: { type: String, enum: ['Keep', 'Monitor', 'Sell/Cull'], default: 'Monitor' },
+    healthScore: { type: Number, min: 0, max: 100 },
+    reasoning: { type: String },
+    lastEvaluated: { type: Date }
+  },
   notes: {
     type: String
   }
