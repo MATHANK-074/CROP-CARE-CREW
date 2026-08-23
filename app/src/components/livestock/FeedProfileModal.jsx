@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FaTimes, FaShieldAlt, FaInfoCircle, FaExclamationTriangle } from 'react-icons/fa';
+import { FaTimes, FaShieldAlt, FaInfoCircle, FaExclamationTriangle, FaBoxOpen } from 'react-icons/fa';
+import axios from 'axios';
 
-const FeedProfileModal = ({ profile, onClose, onOverrideSaved, milkPriceStatus }) => {
+const buildApiUrl = (path) => `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api${path}`;
+
+const FeedProfileModal = ({ profile, onClose, onOverrideSaved, milkPriceStatus, inventoryPredictions }) => {
   const { t } = useTranslation();
   const [showOverride, setShowOverride] = useState(false);
   const [overrideFeed, setOverrideFeed] = useState(null);
@@ -63,21 +66,29 @@ const FeedProfileModal = ({ profile, onClose, onOverrideSaved, milkPriceStatus }
         <div className="p-6 space-y-8">
           
           {/* Summary & Biological Status */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+             <div className="bg-gray-50 p-3 rounded-lg border">
+                <span className="text-xs text-gray-500 font-bold block mb-1">{t('Breed', 'Breed')}</span>
+                <span className="font-medium">{profile.cow.breed || t('Unknown', 'Unknown')}</span>
+             </div>
+             <div className="bg-gray-50 p-3 rounded-lg border">
+                <span className="text-xs text-gray-500 font-bold block mb-1">{t('Weight', 'Weight')}</span>
+                <span className="font-medium">{profile.cow.weight ? `${profile.cow.weight} kg` : t('Unknown', 'Unknown')}</span>
+             </div>
              <div className="bg-gray-50 p-3 rounded-lg border">
                 <span className="text-xs text-gray-500 font-bold block mb-1">{t('Age', 'Age')}</span>
                 <span className="font-medium">{profile.cow.ageString || t('Unknown', 'Unknown')}</span>
              </div>
              <div className="bg-gray-50 p-3 rounded-lg border">
-                <span className="text-xs text-gray-500 font-bold block mb-1">{t('Milk Production', 'Milk Production')}</span>
-                <span className="font-medium">{profile.analysis.milkYield > 0 ? `${(profile.analysis.milkYield || 0).toFixed(1)} L/day` : 'N/A'}</span>
+                 <span className="text-xs text-gray-500 font-bold block mb-1">{t('Milk Yield', 'Milk Yield')}</span>
+                 <span className="font-medium">{profile.analysis.milkYield !== null ? `${profile.analysis.milkYield.toFixed(1)} L/day` : 'N/A'}</span>
              </div>
              <div className="bg-gray-50 p-3 rounded-lg border">
-                <span className="text-xs text-gray-500 font-bold block mb-1">{t('Pregnancy Stage', 'Pregnancy Stage')}</span>
+                <span className="text-xs text-gray-500 font-bold block mb-1">{t('Pregnancy', 'Pregnancy')}</span>
                 <span className="font-medium">{profile.analysis.pregnancyStage ? t(profile.analysis.pregnancyStage, profile.analysis.pregnancyStage) : 'N/A'}</span>
              </div>
              <div className="bg-gray-50 p-3 rounded-lg border">
-                <span className="text-xs text-gray-500 font-bold block mb-1">{t('Days to Delivery', 'Days to Delivery')}</span>
+                <span className="text-xs text-gray-500 font-bold block mb-1">{t('To Delivery', 'To Delivery')}</span>
                 <span className="font-medium">{profile.analysis.daysToDelivery ? profile.analysis.daysToDelivery : 'N/A'}</span>
              </div>
           </div>
@@ -110,51 +121,93 @@ const FeedProfileModal = ({ profile, onClose, onOverrideSaved, milkPriceStatus }
             <h3 className="font-bold text-lg text-gray-800 mb-4">{t('Suggested Feed Plan', 'Suggested Feed Plan')}</h3>
             <div className="bg-white border rounded-xl overflow-hidden">
                <table className="w-full text-left">
-                  <thead className="bg-gray-50 text-xs uppercase text-gray-500 border-b">
+                    <thead className="bg-gray-50 text-xs uppercase text-gray-500 border-b">
                      <tr>
                         <th className="p-3">{t('Feed Type', 'Feed Type')}</th>
                         <th className="p-3">{t('Quantity', 'Quantity')}</th>
+                        <th className="p-3">{t('Inventory', 'Inventory')}</th>
                         <th className="p-3">{t('Daily Cost', 'Daily Cost')}</th>
                         <th className="p-3">{t('Source', 'Source')}</th>
                         <th className="p-3">{t('Actions', 'Actions')}</th>
                      </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                     {profile.feedPlan.map((fp, i) => (
-                        <tr key={i}>
-                           <td className="p-3 font-medium text-gray-800">
-                              {t(fp.feedType, fp.feedType)}
-                              {fp.isOverridden && <span className="ml-2 text-[10px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded uppercase font-bold">{t('FARMER OVERRIDE', 'FARMER OVERRIDE')}</span>}
-                              {fp.reviewRequired && <span className="ml-2 text-[10px] bg-red-100 text-red-700 px-1 py-0.5 rounded uppercase font-bold" title={t(fp.reviewReason, fp.reviewReason)}>{t('REVIEW REQUIRED', 'REVIEW REQUIRED')}</span>}
-                           </td>
-                           <td className="p-3">
-                              {fp.isOverridden ? (
-                                 <div>
-                                    <div className="font-bold text-gray-800">{fp.suggestedQuantityKg} kg</div>
-                                    <div className="text-xs text-gray-400 line-through">Sys: {fp.originalAIQty || 'N/A'} kg</div>
-                                    {fp.overrideReason && <div className="text-[10px] text-purple-600 mt-1" title={fp.overrideReason}>{t('Reason', 'Reason')}: {fp.overrideReason}</div>}
+                     {profile.feedPlan.length === 0 ? (
+                        <tr><td colSpan="6" className="p-4 text-center text-red-500 italic font-medium">{t('Feed plan not available', 'Feed plan not available')}</td></tr>
+                     ) : (
+                        profile.feedPlan.map((fp, i) => {
+                           const inv = inventoryPredictions?.find(inv => inv.feedStock.feedType === fp.feedType);
+                           let statusColor = 'text-gray-500';
+                           let statusDot = 'bg-gray-500';
+                           if (inv) {
+                             if (inv.status.includes('GOOD')) { statusColor = 'text-green-600'; statusDot = 'bg-green-500'; }
+                             else if (inv.status.includes('MONITOR')) { statusColor = 'text-yellow-600'; statusDot = 'bg-yellow-500'; }
+                             else if (inv.status.includes('REORDER')) { statusColor = 'text-orange-600'; statusDot = 'bg-orange-500'; }
+                             else if (inv.status.includes('CRITICAL')) { statusColor = 'text-red-600'; statusDot = 'bg-red-500'; }
+                           }
+                           
+                           return (
+                           <tr key={i}>
+                              <td className="p-3 font-medium text-gray-800">
+                                 {t(fp.feedType, fp.feedType)}
+                                 {fp.isOverridden && <span className="ml-2 text-[10px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded uppercase font-bold">{t('FARMER OVERRIDE', 'FARMER OVERRIDE')}</span>}
+                                 {fp.reviewRequired && <span className="ml-2 text-[10px] bg-red-100 text-red-700 px-1 py-0.5 rounded uppercase font-bold" title={t(fp.reviewReason, fp.reviewReason)}>{t('REVIEW REQUIRED', 'REVIEW REQUIRED')}</span>}
+                              </td>
+                              <td className="p-3">
+                                 {fp.isOverridden ? (
+                                    <div>
+                                       <div className="font-bold text-gray-800">{fp.suggestedQuantityKg} kg</div>
+                                       <div className="text-xs text-gray-400 line-through">Sys: {fp.originalAIQty || 'N/A'} kg</div>
+                                       {fp.overrideReason && <div className="text-[10px] text-purple-600 mt-1" title={fp.overrideReason}>{t('Reason', 'Reason')}: {fp.overrideReason}</div>}
+                                    </div>
+                                 ) : (
+                                    <span className="font-bold text-gray-800">{fp.suggestedQuantityKg} kg</span>
+                                 )}
+                              </td>
+                              <td className="p-3">
+                                 {inv ? (
+                                   <div className="text-xs">
+                                     <div className="font-bold text-gray-700">{inv.feedStock.quantity || 0} {t(inv.feedStock.unit, inv.feedStock.unit)}</div>
+                                     <div className="text-gray-500">{inv.daysRemaining !== 'N/A' ? `${inv.daysRemaining} ${t('days left', 'days left')}` : t('N/A', 'N/A')}</div>
+                                     <div className={`mt-1 flex items-center font-bold ${statusColor}`}>
+                                       <span className={`w-1.5 h-1.5 rounded-full mr-1 ${statusDot}`}></span>
+                                       {t(inv.status.replace(/[^a-zA-Z\s]/g, '').trim(), inv.status.replace(/[^a-zA-Z\s]/g, '').trim())}
+                                     </div>
+                                   </div>
+                                 ) : (
+                                   <span className="text-xs text-gray-400 italic">{t('Not tracked', 'Not tracked')}</span>
+                                 )}
+                              </td>
+                              <td className="p-3">
+                                 <span className="text-gray-800">₹{(fp.estimatedDailyCost || 0).toFixed(2)}</span>
+                                 <div className="text-[10px] text-gray-500">{t(fp.priceStatus, fp.priceStatus)} PRICE</div>
+                              </td>
+                              <td className="p-3 text-xs text-gray-600">
+                                 {t(fp.source, fp.source)}
+                              </td>
+                              <td className="p-3">
+                                 <div className="flex flex-col space-y-2">
+                                   <button 
+                                     onClick={() => { setOverrideFeed(fp); setShowOverride(true); }}
+                                     className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded transition font-medium"
+                                   >
+                                      {t('Override', 'Override')}
+                                   </button>
+                                   <button
+                                     onClick={() => {
+                                        onClose();
+                                        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                                     }}
+                                     className="text-[10px] bg-teal-50 hover:bg-teal-100 text-teal-700 px-2 py-1 rounded transition font-medium flex items-center justify-center whitespace-nowrap"
+                                   >
+                                     <FaBoxOpen className="mr-1" /> {t('Manage Inventory', 'Manage Inventory')}
+                                   </button>
                                  </div>
-                              ) : (
-                                 <span className="font-bold text-gray-800">{fp.suggestedQuantityKg} kg</span>
-                              )}
-                           </td>
-                           <td className="p-3">
-                              <span className="text-gray-800">₹{(fp.estimatedDailyCost || 0).toFixed(2)}</span>
-                              <div className="text-[10px] text-gray-500">{t(fp.priceStatus, fp.priceStatus)} PRICE</div>
-                           </td>
-                           <td className="p-3 text-xs text-gray-600">
-                              {t(fp.source, fp.source)}
-                           </td>
-                           <td className="p-3">
-                              <button 
-                                onClick={() => { setOverrideFeed(fp); setShowOverride(true); }}
-                                className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded transition font-medium"
-                              >
-                                 {t('Override', 'Override')}
-                              </button>
-                           </td>
-                        </tr>
-                     ))}
+                              </td>
+                           </tr>
+                        );
+                        })
+                     )}
                   </tbody>
                </table>
             </div>
@@ -166,7 +219,7 @@ const FeedProfileModal = ({ profile, onClose, onOverrideSaved, milkPriceStatus }
              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                    <div className="text-xs text-gray-500">{t('Daily Feed Cost', 'Daily Feed Cost')}</div>
-                   <div className="font-bold text-lg text-indigo-700">₹{(profile.metrics.dailyFeedCost || 0).toFixed(2)}</div>
+                   <div className="font-bold text-lg text-indigo-700">{profile.feedPlan.length > 0 ? `₹${(profile.metrics.dailyFeedCost || 0).toFixed(2)}` : t('N/A', 'N/A')}</div>
                 </div>
                 <div>
                    <div className="text-xs text-gray-500">{t('Feed Cost/Litre', 'Feed Cost/Litre')}</div>

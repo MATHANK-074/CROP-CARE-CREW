@@ -4,7 +4,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { FaChartLine, FaExclamationTriangle } from 'react-icons/fa';
 
 const buildApiUrl = (path) => {
-  return `http://localhost:5002/api${path}`;
+  return `http://localhost:5005/api${path}`;
 };
 
 export default function HistoricalAnalytics() {
@@ -63,7 +63,7 @@ export default function HistoricalAnalytics() {
                 period === p ? 'bg-white shadow-sm font-bold text-blue-600' : 'text-gray-600 hover:text-gray-800'
               }`}
             >
-              {p.charAt(0).toUpperCase() + p.slice(1)}
+              {t(`intelligence.analytics.${p}`, p.charAt(0).toUpperCase() + p.slice(1))}
             </button>
           ))}
         </div>
@@ -72,14 +72,14 @@ export default function HistoricalAnalytics() {
       {!hasData ? (
         <div className="bg-yellow-50 border border-yellow-200 p-12 rounded-xl text-center">
           <FaExclamationTriangle className="text-4xl text-yellow-500 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-yellow-800">INSUFFICIENT DATA</h3>
-          <p className="text-yellow-600 mt-2">There is not enough historical data to generate trends for the selected period.</p>
+          <h3 className="text-lg font-bold text-yellow-800">{t('intelligence.analytics.insufficient_data', 'INSUFFICIENT DATA')}</h3>
+          <p className="text-yellow-600 mt-2">{t('intelligence.analytics.not_enough_data', 'There is not enough historical data to generate trends for the selected period.')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Milk Trend Chart */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h4 className="font-bold text-gray-800 mb-6">Milk Production Trend</h4>
+            <h4 className="font-bold text-gray-800 mb-6">{t('intelligence.analytics.milk_trend', 'Milk Production Trend')}</h4>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={data.milkTrends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -96,15 +96,15 @@ export default function HistoricalAnalytics() {
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                   />
                   <Legend />
-                  <Area type="monotone" name="Total Yield (L)" dataKey="totalYield" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorYield)" />
-                </AreaChart>
+                  <Area type="monotone" name={t('intelligence.analytics.total_yield', 'Total Yield (L)')} dataKey="totalYield" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorYield)" />
+                </AreaChart>>
               </ResponsiveContainer>
             </div>
           </div>
 
           {/* Feed Cost Trend Chart */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h4 className="font-bold text-gray-800 mb-6">Feed Cost & Consumption Trend</h4>
+            <h4 className="font-bold text-gray-800 mb-6">{t('intelligence.analytics.feed_cost_trend', 'Feed Cost & Consumption Trend')}</h4>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.feedTrends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -113,13 +113,13 @@ export default function HistoricalAnalytics() {
                   <YAxis yAxisId="left" orientation="left" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
                   <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
                   <Tooltip 
-                    formatter={(value, name) => name === 'Total Cost (₹)' ? formatCurrency(value) : `${value} kg`}
+                    formatter={(value, name) => name === t('intelligence.analytics.total_cost', 'Total Cost (₹)') ? formatCurrency(value) : `${value} kg`}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                   />
                   <Legend />
-                  <Bar yAxisId="left" name="Total Cost (₹)" dataKey="totalCost" fill="#f97316" radius={[4, 4, 0, 0]} />
-                  <Bar yAxisId="right" name="Total Feed (kg)" dataKey="totalFeedKg" fill="#10b981" radius={[4, 4, 0, 0]} />
-                </BarChart>
+                  <Bar yAxisId="left" name={t('intelligence.analytics.total_cost', 'Total Cost (₹)')} dataKey="totalCost" fill="#f97316" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="right" name={t('intelligence.analytics.total_feed', 'Total Feed (kg)')} dataKey="totalFeedKg" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>>
               </ResponsiveContainer>
             </div>
           </div>

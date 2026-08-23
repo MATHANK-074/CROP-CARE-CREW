@@ -5,9 +5,15 @@ const medicalRecordSchema = new mongoose.Schema({
   livestock: { type: mongoose.Schema.Types.ObjectId, ref: 'Livestock', required: true },
   type: { type: String, enum: ['Vaccine', 'Treatment', 'Vitamin', 'Other'], required: true },
   name: { type: String, required: true },
+  treatmentName: { type: String }, // specific drug/vaccine name
+  dose: { type: String },
+  route: { type: String }, // e.g. IM, SubQ
+  reason: { type: String },
+  status: { type: String, enum: ['UPCOMING', 'COMPLETED', 'SKIPPED'], default: 'COMPLETED' },
   date: { type: Date, default: Date.now },
   cost: { type: Number, default: 0 },
   nextDueDate: { type: Date }, // For recurring treatments or vaccines
+  expectedResponseDate: { type: Date }, // When to check for response
   administeredBy: { type: String },
   notes: { type: String }
 }, { timestamps: true });

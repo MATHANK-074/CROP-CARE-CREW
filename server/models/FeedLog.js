@@ -13,12 +13,18 @@ const feedLogSchema = new mongoose.Schema({
   },
   action: {
     type: String,
-    enum: ['Consumed', 'Restocked', 'Adjustment'],
+    enum: ['PURCHASE', 'RESTOCK', 'CONSUMPTION', 'ADJUSTMENT_ADD', 'ADJUSTMENT_REMOVE', 'WASTAGE', 'SPOILAGE', 'Consumed', 'Restocked', 'Adjustment'],
     required: true
   },
   quantity: {
     type: Number, // Amount added (+) or consumed (-)
     required: true
+  },
+  previousStock: {
+    type: Number
+  },
+  newStock: {
+    type: Number
   },
   date: {
     type: Date,
@@ -26,6 +32,15 @@ const feedLogSchema = new mongoose.Schema({
   },
   cost: {
     type: Number // Optional: Used if action is 'Restocked' to track financials
+  },
+  supplier: {
+    type: String
+  },
+  batchNumber: {
+    type: String
+  },
+  expiryDate: {
+    type: Date
   },
   notes: {
     type: String

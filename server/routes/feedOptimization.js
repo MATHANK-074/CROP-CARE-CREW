@@ -14,18 +14,48 @@ const AnimalFeedRecord = require('../models/AnimalFeedRecord');
 // Configuration default seeder if none exist
 const ensureDefaultConfigurations = async (userId) => {
   let configs = await FeedConfiguration.find({ user: userId });
+  
+  // Check if upgrading from V1 to V2 (if the V2 CALF stage doesn't exist but configs do)
+  const hasV2Config = configs.some(c => c.lifeStage === 'CALF');
+  
+  if (configs.length > 0 && !hasV2Config) {
+    // Delete legacy V1 configs
+    await FeedConfiguration.deleteMany({ user: userId });
+    configs = [];
+  }
+
   if (configs.length === 0) {
     const defaultConfigs = [
-      { user: userId, lifeStage: 'Calf/Growing', feedType: 'Calf Starter', baseQuantityKg: 1.5, goal: 'Growth' },
-      { user: userId, lifeStage: 'Heifer', feedType: 'Green Fodder', baseQuantityKg: 10, goal: 'Growth' },
-      { user: userId, lifeStage: 'Adult Non-Lactating', feedType: 'Green Fodder', baseQuantityKg: 15, goal: 'Maintenance' },
-      { user: userId, lifeStage: 'Adult Non-Lactating', feedType: 'Dry Fodder', baseQuantityKg: 5, goal: 'Maintenance' },
-      { user: userId, lifeStage: 'Lactating', feedType: 'Green Fodder', baseQuantityKg: 20, milkMultiplier: 0.2, goal: 'Milk Production' },
-      { user: userId, lifeStage: 'Lactating', feedType: 'Concentrates', baseQuantityKg: 2, milkMultiplier: 0.4, goal: 'Milk Production' },
-      { user: userId, lifeStage: 'Pregnant', feedType: 'Green Fodder', baseQuantityKg: 20, pregnancyTrimester3Multiplier: 5, goal: 'Gestation' },
-      { user: userId, lifeStage: 'Pregnant + Lactating', feedType: 'Green Fodder', baseQuantityKg: 20, milkMultiplier: 0.2, pregnancyTrimester3Multiplier: 5, goal: 'Gestation + Lactation' },
-      { user: userId, lifeStage: 'Dry Cow', feedType: 'Dry Fodder', baseQuantityKg: 10, goal: 'Preparation for Calving' },
-      { user: userId, lifeStage: 'Special Care', feedType: 'Concentrates', baseQuantityKg: 1, goal: 'Recovery' }
+      // CALF
+      { user: userId, lifeStage: 'CALF', feedType: 'Milk / Milk Replacer', baseQuantityKg: 4, goal: 'Growth' },
+      { user: userId, lifeStage: 'CALF', feedType: 'Calf Starter', baseQuantityKg: 0.5, goal: 'Growth' },
+      { user: userId, lifeStage: 'CALF', feedType: 'Green Fodder', baseQuantityKg: 1, goal: 'Rumen Development' },
+      // GROWING HEIFER
+      { user: userId, lifeStage: 'GROWING HEIFER', feedType: 'Green Fodder', baseQuantityKg: 10, goal: 'Growth' },
+      { user: userId, lifeStage: 'GROWING HEIFER', feedType: 'Paddy Straw', baseQuantityKg: 2, goal: 'Maintenance' },
+      { user: userId, lifeStage: 'GROWING HEIFER', feedType: 'Rice Bran', baseQuantityKg: 1, goal: 'Energy' },
+      // ADULT NON-LACTATING
+      { user: userId, lifeStage: 'ADULT NON-LACTATING', feedType: 'Green Fodder', baseQuantityKg: 15, goal: 'Maintenance' },
+      { user: userId, lifeStage: 'ADULT NON-LACTATING', feedType: 'Paddy Straw', baseQuantityKg: 5, goal: 'Maintenance' },
+      // PREGNANT
+      { user: userId, lifeStage: 'PREGNANT', feedType: 'Green Fodder', baseQuantityKg: 20, pregnancyTrimester3Multiplier: 5, pregnancyTrimester2Multiplier: 2, goal: 'Gestation' },
+      { user: userId, lifeStage: 'PREGNANT', feedType: 'Groundnut Cake', baseQuantityKg: 1, pregnancyTrimester3Multiplier: 1, goal: 'Protein for Fetus' },
+      { user: userId, lifeStage: 'PREGNANT', feedType: 'Mineral Mixture', baseQuantityKg: 0.1, goal: 'Fetal Development' },
+      // PREGNANT + LACTATING
+      { user: userId, lifeStage: 'PREGNANT + LACTATING', feedType: 'Green Fodder', baseQuantityKg: 15, milkMultiplier: 0.5, pregnancyTrimester3Multiplier: 5, goal: 'Gestation + Lactation' },
+      { user: userId, lifeStage: 'PREGNANT + LACTATING', feedType: 'Groundnut Cake', baseQuantityKg: 1, milkMultiplier: 0.2, pregnancyTrimester3Multiplier: 1, goal: 'Gestation + Lactation Protein' },
+      { user: userId, lifeStage: 'PREGNANT + LACTATING', feedType: 'Mineral Mixture', baseQuantityKg: 0.15, milkMultiplier: 0.01, goal: 'Minerals' },
+      // DRY COW
+      { user: userId, lifeStage: 'DRY COW', feedType: 'Green Fodder', baseQuantityKg: 10, goal: 'Preparation for Calving' },
+      { user: userId, lifeStage: 'DRY COW', feedType: 'Paddy Straw', baseQuantityKg: 8, goal: 'Maintenance' },
+      // LACTATING
+      { user: userId, lifeStage: 'LACTATING', feedType: 'Green Fodder', baseQuantityKg: 15, milkMultiplier: 0.5, goal: 'Milk Production' },
+      { user: userId, lifeStage: 'LACTATING', feedType: 'Groundnut Cake', baseQuantityKg: 1, milkMultiplier: 0.3, goal: 'Milk Protein' },
+      { user: userId, lifeStage: 'LACTATING', feedType: 'Mineral Mixture', baseQuantityKg: 0.1, milkMultiplier: 0.01, goal: 'Minerals' },
+      // SPECIAL CARE
+      { user: userId, lifeStage: 'SPECIAL CARE', feedType: 'Special Diet', baseQuantityKg: 1, goal: 'Recovery' },
+      // BULL
+      { user: userId, lifeStage: 'BULL', feedType: 'Green Fodder', baseQuantityKg: 20, goal: 'Maintenance' }
     ];
     await FeedConfiguration.insertMany(defaultConfigs);
     configs = await FeedConfiguration.find({ user: userId });
@@ -38,10 +68,21 @@ const classifyAnimal = (cow, breedingRecords, medicalRecords, milkLogs) => {
   let profile = 'ADULT NON-LACTATING';
   let pregnancyStage = null;
   let daysToDelivery = null;
-  let confidence = 'HIGH';
+  let confidence = 'HIGH CONFIDENCE';
   let confidenceScore = 100;
   let explanation = '';
   let specialCare = false;
+  
+  // Conf checks
+  if (!cow.breed || cow.breed.trim() === '') {
+    confidenceScore -= 15;
+  }
+  if (!cow.weight || cow.weight <= 0) {
+    confidenceScore -= 10;
+  }
+  if (!cow.birthDate) {
+    confidenceScore -= 10;
+  }
   
   // 1. Health Status
   const recentMedical = medicalRecords.filter(m => new Date(m.date) > new Date(Date.now() - 30*24*60*60*1000));
@@ -62,26 +103,29 @@ const classifyAnimal = (cow, breedingRecords, medicalRecords, milkLogs) => {
       calvingDate.setDate(calvingDate.getDate() + 283);
       daysToDelivery = Math.ceil((calvingDate - new Date()) / (1000 * 60 * 60 * 24));
       
-      if (daysToDelivery <= 90) pregnancyStage = 'THIRD_TRIMESTER';
-      else if (daysToDelivery <= 180) pregnancyStage = 'SECOND_TRIMESTER';
-      else pregnancyStage = 'FIRST_TRIMESTER';
+      if (daysToDelivery <= 90) pregnancyStage = 'THIRD TRIMESTER';
+      else if (daysToDelivery <= 180) pregnancyStage = 'SECOND TRIMESTER';
+      else pregnancyStage = 'FIRST TRIMESTER';
     } else {
       confidenceScore -= 20;
-      confidence = 'MEDIUM';
     }
   }
 
   // 3. Milk Production
   const recentMilk = milkLogs.filter(m => new Date(m.date) > new Date(Date.now() - 30*24*60*60*1000));
   const isLactating = cow.status === 'Milking' || recentMilk.length > 0;
-  const avgMilk = recentMilk.length > 0 ? recentMilk.reduce((sum, m) => sum + m.quantity, 0) / recentMilk.length : cow.dailyMilkYield || 0;
+  
+  let avgMilk = null;
+  if (recentMilk.length > 0) {
+    avgMilk = recentMilk.reduce((sum, m) => sum + m.quantity, 0) / recentMilk.length;
+  } else if (cow.dailyMilkYield !== undefined && cow.dailyMilkYield !== null) {
+    avgMilk = cow.dailyMilkYield;
+  }
 
   if (isLactating && avgMilk === 0) {
+    confidenceScore -= 10;
+  } else if (isLactating && avgMilk === null) {
     confidenceScore -= 30;
-    confidence = 'LOW';
-  } else if (isLactating && recentMilk.length === 0) {
-    confidenceScore -= 15;
-    confidence = 'MEDIUM';
   }
 
   // 4. Age & Dry Period
@@ -89,37 +133,47 @@ const classifyAnimal = (cow, breedingRecords, medicalRecords, milkLogs) => {
   const isDry = cow.status === 'Dry';
 
   // Master Classification Logic
+  let breedStr = cow.breed && cow.breed.trim() !== '' ? `${cow.breed} breed` : 'animal';
+
   if (specialCare) {
     profile = 'SPECIAL CARE';
-    explanation = 'Special feeding review recommended based on recent health records.';
+    explanation = `Special Feeding Plan — Farmer/Veterinary Review Required for this ${breedStr}.`;
   } else if (ageInDays !== null && ageInDays < 180) {
-    profile = 'CALF / GROWING';
-    explanation = 'Growing animals require a different feeding profile for healthy body development.';
+    profile = 'CALF';
+    explanation = `Young ${breedStr} — feed plan prioritizes growth and rumen development.`;
   } else if (ageInDays !== null && ageInDays < 730 && !isPregnant && !isLactating) {
-    profile = 'HEIFER';
-    explanation = 'Healthy growth and preparation for future production.';
+    profile = 'GROWING HEIFER';
+    explanation = `This ${breedStr} is in the growing stage. The feeding plan prioritizes balanced growth rather than maximum milk production.`;
   } else if (isDry) {
     profile = 'DRY COW';
-    explanation = 'Milk production has entered the dry period. Feed planning has been adjusted for maintenance and preparation for calving.';
+    explanation = `This ${breedStr} is in the dry period. Feed logic focuses on maintenance and preparation for next lactation.`;
   } else if (isPregnant && isLactating) {
     profile = 'PREGNANT + LACTATING';
-    explanation = `Feed allocation considers current milk production (${(avgMilk || 0).toFixed(1)} L/day) and ${pregnancyStage?.replace('_', ' ').toLowerCase() || 'pregnancy'} status.`;
+    const milkStr = avgMilk !== null ? `(${avgMilk.toFixed(1)} L/day)` : '(Milk data unavailable)';
+    explanation = `Milk production requires a lactation ration ${milkStr}. This ${breedStr} is also in the ${pregnancyStage?.toLowerCase() || 'pregnant'} stage, so the configured pregnancy adjustment has been applied.`;
   } else if (isPregnant) {
     profile = 'PREGNANT';
-    explanation = `Additional nutritional support is recommended during ${pregnancyStage?.replace('_', ' ').toLowerCase() || 'pregnancy'} for fetal growth.`;
+    explanation = `Fetal growth is increasing, so the system has activated the configured pregnancy nutrition adjustment for this ${breedStr} (${pregnancyStage?.toLowerCase() || 'pregnant'}).`;
   } else if (isLactating) {
     profile = 'LACTATING';
-    explanation = `Concentrate allocation is influenced by recent milk production (${(avgMilk || 0).toFixed(1)} L/day).`;
+    const milkStr = avgMilk !== null ? `(${avgMilk.toFixed(1)} L/day)` : '(Milk data unavailable)';
+    explanation = `Feed allocation is primarily influenced by this ${breedStr}'s lactation status and current milk yield ${milkStr}.`;
   } else if (cow.gender === 'Male' && cow.category === 'Bull') {
     profile = 'BULL';
-    explanation = 'Standard bull maintenance diet.';
+    explanation = `Standard bull maintenance diet for ${breedStr}.`;
   } else {
     profile = 'ADULT NON-LACTATING';
-    explanation = 'Standard maintenance profile.';
+    explanation = `Standard maintenance profile for ${breedStr}.`;
   }
-
-  if (confidenceScore < 50) confidence = 'LOW';
-  else if (confidenceScore < 80) confidence = 'MEDIUM';
+  
+  if (confidenceScore < 70) confidence = 'LOW CONFIDENCE / DATA REQUIRED';
+  else if (confidenceScore < 90) confidence = 'MEDIUM CONFIDENCE';
+  else confidence = 'HIGH CONFIDENCE';
+  
+  if (confidence === 'LOW CONFIDENCE / DATA REQUIRED') {
+      if (!cow.breed) explanation += ' Breed data unavailable — recommendation confidence reduced.';
+      if (isLactating && avgMilk === null) explanation += ' Milk yield data missing.';
+  }
 
   return {
     profile,
@@ -137,16 +191,6 @@ const classifyAnimal = (cow, breedingRecords, medicalRecords, milkLogs) => {
 // Calculate individual feed plan
 const calculateFeedPlan = (cowAnalysis, configs, feedStocks, overrides, cow) => {
   let mappedLifeStage = cowAnalysis.profile;
-  if (mappedLifeStage === 'CALF / GROWING') mappedLifeStage = 'Calf/Growing';
-  if (mappedLifeStage === 'HEIFER') mappedLifeStage = 'Heifer';
-  if (mappedLifeStage === 'ADULT NON-LACTATING') mappedLifeStage = 'Adult Non-Lactating';
-  if (mappedLifeStage === 'PREGNANT') mappedLifeStage = 'Pregnant';
-  if (mappedLifeStage === 'LACTATING') mappedLifeStage = 'Lactating';
-  if (mappedLifeStage === 'PREGNANT + LACTATING') mappedLifeStage = 'Pregnant + Lactating';
-  if (mappedLifeStage === 'DRY COW') mappedLifeStage = 'Dry Cow';
-  if (mappedLifeStage === 'SPECIAL CARE') mappedLifeStage = 'Special Care';
-  if (mappedLifeStage === 'BULL') mappedLifeStage = 'Bull';
-
   const applicableConfigs = configs.filter(c => c.lifeStage === mappedLifeStage);
   
   let feedPlan = [];
@@ -155,7 +199,7 @@ const calculateFeedPlan = (cowAnalysis, configs, feedStocks, overrides, cow) => 
   // Conf penalty if no configs
   if (applicableConfigs.length === 0) {
     cowAnalysis.confidenceScore -= 40;
-    cowAnalysis.confidence = 'LOW';
+    cowAnalysis.confidence = 'LOW CONFIDENCE / DATA REQUIRED';
   }
 
   for (let config of applicableConfigs) {
@@ -163,25 +207,27 @@ const calculateFeedPlan = (cowAnalysis, configs, feedStocks, overrides, cow) => 
     let source = 'CONFIGURED_BASELINE';
 
     if (config.milkMultiplier > 0 && cowAnalysis.isLactating) {
-      suggestedQty += ((cowAnalysis.milkYield || 0) * config.milkMultiplier);
-      source = 'MILK_ADJUSTED';
+      if (cowAnalysis.milkYield !== null) {
+        suggestedQty += (cowAnalysis.milkYield * config.milkMultiplier);
+        source = 'MILK_ADJUSTED';
+      }
     }
 
-    if (cowAnalysis.pregnancyStage === 'THIRD_TRIMESTER' && config.pregnancyTrimester3Multiplier > 0) {
+    if (cowAnalysis.pregnancyStage === 'THIRD TRIMESTER' && config.pregnancyTrimester3Multiplier > 0) {
       suggestedQty += config.pregnancyTrimester3Multiplier;
       source = 'PREGNANCY_ADJUSTED';
-    } else if (cowAnalysis.pregnancyStage === 'SECOND_TRIMESTER' && config.pregnancyTrimester2Multiplier > 0) {
+    } else if (cowAnalysis.pregnancyStage === 'SECOND TRIMESTER' && config.pregnancyTrimester2Multiplier > 0) {
       suggestedQty += config.pregnancyTrimester2Multiplier;
       source = 'PREGNANCY_ADJUSTED';
-    } else if (cowAnalysis.pregnancyStage === 'FIRST_TRIMESTER' && config.pregnancyTrimester1Multiplier > 0) {
+    } else if (cowAnalysis.pregnancyStage === 'FIRST TRIMESTER' && config.pregnancyTrimester1Multiplier > 0) {
       suggestedQty += config.pregnancyTrimester1Multiplier;
       source = 'PREGNANCY_ADJUSTED';
     }
 
-    // Biological Sanity Checks (Configurable limits ideally, using generic limits here for safety)
+    // Biological Sanity Checks
     let reviewRequired = false;
     let reviewReason = null;
-    if (config.feedType === 'Concentrates' && suggestedQty > 15) {
+    if ((config.feedType === 'Concentrates' || config.feedType === 'Groundnut Cake') && suggestedQty > 15) {
       reviewRequired = true;
       reviewReason = 'Calculated concentrate allocation exceeds the safe range. Review recommended.';
     } else if (cowAnalysis.specialCare) {
@@ -195,7 +241,8 @@ const calculateFeedPlan = (cowAnalysis, configs, feedStocks, overrides, cow) => 
     
     if (priceStatus === 'ESTIMATED') {
       cowAnalysis.confidenceScore -= 10;
-      if (cowAnalysis.confidenceScore < 80) cowAnalysis.confidence = 'MEDIUM';
+      if (cowAnalysis.confidenceScore < 90 && cowAnalysis.confidenceScore >= 70) cowAnalysis.confidence = 'MEDIUM CONFIDENCE';
+      if (cowAnalysis.confidenceScore < 70) cowAnalysis.confidence = 'LOW CONFIDENCE / DATA REQUIRED';
     }
     
     // Check for override

@@ -7,6 +7,7 @@ import {
 } from 'react-icons/fa';
 import FeedProfileModal from './FeedProfileModal';
 import FarmSettingsModal from './FarmSettingsModal';
+import FeedInventory from './FeedInventory';
 
 const buildApiUrl = (path) => `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api${path}`;
 
@@ -100,7 +101,7 @@ const FeedOptimizationDashboard = () => {
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center relative">
              <span className="absolute top-2 right-2 text-[10px] bg-gray-100 text-gray-500 px-1 rounded">ESTIMATED</span>
             <span className="text-sm text-gray-500 font-medium text-center">{t('Today\'s Feed Cost', 'Today\'s Feed Cost')}</span>
-            <span className="text-2xl font-bold text-gray-800">₹{(kpi.totalDailyCost || 0).toLocaleString('en-IN')}</span>
+            <span className="text-2xl font-bold text-gray-800">{Object.keys(todaysRequirement).length === 0 ? <span className="text-sm text-gray-400 font-normal">{t('Not Available', 'Not Available')}</span> : `₹${(kpi.totalDailyCost || 0).toLocaleString('en-IN')}`}</span>
           </div>
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center relative">
              <span className="absolute top-2 right-2 text-[10px] bg-gray-100 text-gray-500 px-1 rounded">ESTIMATED</span>
@@ -162,7 +163,7 @@ const FeedOptimizationDashboard = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {Object.keys(todaysRequirement).length === 0 ? (
-                    <tr><td colSpan="5" className="p-8 text-center text-gray-500">{t('No feed rules configured.', 'No feed rules configured.')}</td></tr>
+                    <tr><td colSpan="5" className="p-8 text-center text-gray-500">{t('Feed configuration required', 'Feed configuration required')}</td></tr>
                   ) : (
                     Object.keys(todaysRequirement).map(feedType => {
                        const inv = inventoryPredictions.find(i => i.feedStock.feedType === feedType);
@@ -190,13 +191,13 @@ const FeedOptimizationDashboard = () => {
                  <h3 className="text-lg font-bold text-gray-800 flex items-center mb-2">
                    <FaCow className="mr-2 text-indigo-500"/> {t('Suggested Feed Plans', 'Suggested Feed Plans')}
                  </h3>
-                 <div className="flex gap-2 overflow-x-auto pb-2">
-                    {['ALL', 'CALF / GROWING', 'HEIFER', 'ADULT NON-LACTATING', 'PREGNANT', 'LACTATING', 'PREGNANT + LACTATING', 'DRY COW', 'SPECIAL CARE', 'BULL'].map(cat => (
-                       <button 
-                         key={cat} 
-                         onClick={() => setFilterCategory(cat)}
-                         className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${filterCategory === cat ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                       >
+                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                     {['ALL', 'CALF', 'GROWING HEIFER', 'ADULT NON-LACTATING', 'PREGNANT', 'LACTATING', 'PREGNANT + LACTATING', 'DRY COW', 'SPECIAL CARE', 'BULL'].map(cat => (
+                        <button 
+                          key={cat} 
+                          onClick={() => setFilterCategory(cat)}
+                          className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${filterCategory === cat ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                        >
                           {t(cat, cat)}
                        </button>
                     ))}
@@ -232,24 +233,28 @@ const FeedOptimizationDashboard = () => {
                        )}
 
                        <div className="text-sm text-gray-600 mb-2 space-y-1">
-                          {profile.analysis.isLactating && <div className="flex justify-between"><span>{t('Milk', 'Milk')}:</span> <span>{(profile.analysis.milkYield || 0).toFixed(1)} L/day</span></div>}
+                          {profile.analysis.isLactating && <div className="flex justify-between"><span>{t('Milk', 'Milk')}:</span> <span>{profile.analysis.milkYield !== null ? `${profile.analysis.milkYield.toFixed(1)} L/day` : <span className="text-gray-400 italic text-xs">{t('N/A', 'N/A')}</span>}</span></div>}
                           {profile.analysis.pregnancyStage && <div className="flex justify-between"><span>{t('Pregnancy', 'Pregnancy')}:</span> <span>{t(profile.analysis.pregnancyStage, profile.analysis.pregnancyStage)}</span></div>}
                        </div>
 
                        <div className="mt-3 pt-3 border-t">
-                          <div className="text-xs font-bold text-gray-500 mb-2">{t('Suggested Feed', 'Suggested Feed')}</div>
-                          {profile.feedPlan.map((fp, i) => (
-                             <div key={i} className="flex justify-between text-sm mb-1">
-                                <span>{t(fp.feedType, fp.feedType)} {fp.reviewRequired && <span className="text-red-500 ml-1" title={fp.reviewReason}>⚠️</span>}</span>
-                                <span className="font-medium">{fp.suggestedQuantityKg} kg</span>
-                             </div>
-                          ))}
+                          <div className="text-xs font-bold text-gray-500 mb-2">{t('Recommended Feed', 'Recommended Feed')}</div>
+                          {profile.feedPlan.length === 0 ? (
+                             <div className="text-sm text-red-500 italic">{t('Feed plan not available', 'Feed plan not available')}</div>
+                          ) : (
+                             profile.feedPlan.map((fp, i) => (
+                                <div key={i} className="flex justify-between text-sm mb-1">
+                                   <span>{t(fp.feedType, fp.feedType)} {fp.reviewRequired && <span className="text-red-500 ml-1" title={fp.reviewReason}>⚠️</span>}</span>
+                                   <span className="font-medium">{fp.suggestedQuantityKg} kg</span>
+                                </div>
+                             ))
+                          )}
                        </div>
 
                        <div className="mt-3 pt-3 border-t flex justify-between items-end">
                           <div>
                              <div className="text-xs text-gray-500">{t('Daily Cost', 'Daily Cost')} <span className="text-[9px] bg-gray-200 px-1 rounded ml-1">EST</span></div>
-                             <div className="font-bold text-indigo-700">₹{(profile.metrics.dailyFeedCost || 0).toFixed(2)}</div>
+                             <div className="font-bold text-indigo-700">{profile.feedPlan.length > 0 ? `₹${(profile.metrics.dailyFeedCost || 0).toFixed(2)}` : t('N/A', 'N/A')}</div>
                           </div>
                           <div className="text-right">
                              <div className="text-[10px] text-gray-500">{t('Confidence', 'Confidence')}</div>
@@ -260,7 +265,6 @@ const FeedOptimizationDashboard = () => {
                        </div>
                     </div>
                  ))}
-             </div>
           </div>
         </div>
 
@@ -275,8 +279,10 @@ const FeedOptimizationDashboard = () => {
                <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-1 rounded font-bold">PREDICTED</span>
              </div>
              <div className="p-4 space-y-4">
-               {inventoryPredictions.filter(i => i.urgency > 1).length === 0 ? (
-                  <div className="text-gray-500 text-sm text-center py-4">{t('Inventory is secure. No alerts.', 'Inventory is secure. No alerts.')}</div>
+               {inventoryPredictions.length === 0 ? (
+                  <div className="text-gray-500 text-sm text-center py-4">{t('Inventory data is currently unavailable.', 'Inventory data is currently unavailable.')}</div>
+               ) : inventoryPredictions.filter(i => i.urgency > 1).length === 0 ? (
+                  <div className="text-gray-500 text-sm text-center py-4">{t('Inventory is currently sufficient. No alerts at this time.', 'Inventory is currently sufficient. No alerts at this time.')}</div>
                ) : (
                   inventoryPredictions.filter(i => i.urgency > 1).map((inv, idx) => (
                      <div key={idx} className={`border rounded p-3 ${inv.urgency === 3 ? 'border-red-300 bg-red-50' : 'border-orange-300 bg-orange-50'}`}>
@@ -287,7 +293,7 @@ const FeedOptimizationDashboard = () => {
                            <span className="font-bold text-sm text-gray-700">{t(inv.feedStock.feedType, inv.feedStock.feedType)}</span>
                         </div>
                         <div className="text-sm mb-1 text-gray-800">
-                           {t('Expected stock-out', 'Expected stock-out')}: <span className="font-medium">{inv.stockOutDate && inv.stockOutDate !== 'Lead time not configured' ? new Date(inv.stockOutDate).toLocaleDateString() : t(inv.stockOutDate, inv.stockOutDate)}</span>
+                           {t('Expected stock-out', 'Expected stock-out')}: <span className="font-medium">{inv.stockOutDate && inv.stockOutDate !== 'Lead time not configured' ? new Date(inv.stockOutDate).toLocaleDateString() : t('N/A', 'N/A')}</span>
                         </div>
                         <div className="text-sm mb-2 text-gray-800">
                            {t('Recommended order', 'Recommended order')}: <span className="font-bold">{inv.recommendedPurchaseQty} {inv.feedStock.unit}</span>
@@ -334,7 +340,7 @@ const FeedOptimizationDashboard = () => {
                     </div>
                  </div>
                ) : (
-                 <div className="text-sm text-gray-500 text-center py-4">{t('Insufficient historical data', 'Insufficient historical data')}</div>
+                 <div className="text-sm text-gray-500 text-center py-4 uppercase font-bold">{t('Trend data not yet available', 'Trend data not yet available')}</div>
                )}
              </div>
            </div>
@@ -350,15 +356,15 @@ const FeedOptimizationDashboard = () => {
              <div className="p-5 space-y-4 text-sm text-gray-700">
                 <div className="flex justify-between border-b pb-2">
                    <span>{t('Total Daily Feed Cost', 'Total Daily Feed Cost')}</span>
-                   <span className="font-bold">₹{(kpi.totalDailyCost || 0).toLocaleString('en-IN')}</span>
+                   <span className="font-bold">{Object.keys(todaysRequirement).length === 0 ? <span className="text-sm text-gray-400 font-normal">{t('Not Available', 'Not Available')}</span> : `₹${(kpi.totalDailyCost || 0).toLocaleString('en-IN')}`}</span>
                 </div>
                 <div className="flex justify-between border-b pb-2">
                    <span>{t('7-Day Feed Cost', '7-Day Feed Cost')}</span>
-                   <span className="font-bold">₹{((kpi.totalDailyCost || 0) * 7).toLocaleString('en-IN')}</span>
+                   <span className="font-bold">{Object.keys(todaysRequirement).length === 0 ? <span className="text-sm text-gray-400 font-normal">{t('Not Available', 'Not Available')}</span> : `₹${((kpi.totalDailyCost || 0) * 7).toLocaleString('en-IN')}`}</span>
                 </div>
                 <div className="flex justify-between border-b pb-2">
                    <span>{t('30-Day Feed Cost', '30-Day Feed Cost')}</span>
-                   <span className="font-bold">₹{((kpi.totalDailyCost || 0) * 30).toLocaleString('en-IN')}</span>
+                   <span className="font-bold">{Object.keys(todaysRequirement).length === 0 ? <span className="text-sm text-gray-400 font-normal">{t('Not Available', 'Not Available')}</span> : `₹${((kpi.totalDailyCost || 0) * 30).toLocaleString('en-IN')}`}</span>
                 </div>
                 <div className="flex justify-between">
                    <span>{t('Feed Cost / Litre', 'Feed Cost / Litre')}</span>
@@ -369,6 +375,13 @@ const FeedOptimizationDashboard = () => {
 
         </div>
       </div>
+      
+      {/* Feed Inventory Section */}
+      <FeedInventory 
+        inventoryPredictions={inventoryPredictions} 
+        inventoryValue={kpi.inventoryValue}
+        onRefresh={fetchDashboardData}
+      />
 
       {selectedCowProfile && (
         <FeedProfileModal 
@@ -376,6 +389,7 @@ const FeedOptimizationDashboard = () => {
            onClose={() => setSelectedCowProfile(null)}
            onOverrideSaved={fetchDashboardData}
            milkPriceStatus={milkPriceStatus}
+           inventoryPredictions={inventoryPredictions}
         />
       )}
       
@@ -384,6 +398,7 @@ const FeedOptimizationDashboard = () => {
          onClose={() => setIsSettingsOpen(false)} 
          onSaved={fetchDashboardData} 
       />
+    </div>
     </div>
   );
 };

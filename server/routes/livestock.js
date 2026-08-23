@@ -7,6 +7,7 @@ const MedicalRecord = require('../models/MedicalRecord');
 const MilkLog = require('../models/MilkLog');
 const AnimalFeedRecord = require('../models/AnimalFeedRecord');
 const CalendarEvent = require('../models/CalendarEvent');
+const { calculateLifeStage } = require('../services/LifecycleService');
 const { generateHealthEvaluation } = require('../utils/healthEvaluationGenerator');
 const {
   calculateDataConfidence,
@@ -147,11 +148,19 @@ router.get('/dashboard/stats', auth, async (req, res) => {
 // POST /api/livestock - Add a new animal
 router.post('/', auth, async (req, res) => {
   try {
-    const { tagId, species, trackingType, flockSize, category, breed, birthDate, ageString, buyingPrice, gender, status, weight, expectedDeliveryDate, notes } = req.body;
+    const { 
+      tagId, species, trackingType, flockSize, category, breed, birthDate, ageString, buyingPrice, 
+      gender, status, weight, birthWeight, currentWeight, source, motherTagId, fatherTagId,
+      expectedDeliveryDate, notes 
+    } = req.body;
     
+    // Auto-calculate life stage
+    const lifeStage = calculateLifeStage(birthDate, gender);
+
     const newAnimal = new Livestock({
       user: req.user.id,
-      tagId, species, trackingType, flockSize, category, breed, birthDate, ageString, buyingPrice, gender, status, weight, notes
+      tagId, species, trackingType, flockSize, category, breed, birthDate, ageString, buyingPrice, 
+      gender, status, weight, birthWeight, currentWeight, source, motherTagId, fatherTagId, lifeStage, notes
     });
 
     const savedAnimal = await newAnimal.save();
@@ -177,6 +186,157 @@ router.post('/', auth, async (req, res) => {
     }
     console.error('Error adding livestock:', error);
     res.status(500).json({ message: 'Server error while adding livestock' });
+  }
+});
+
+// POST /api/livestock/birth - Register a new birth (calf)
+router.post('/birth', auth, async (req, res) => {
+  try {
+    const { 
+      tagId, breed, birthDate, birthWeight, gender, motherTagId, fatherTagId, notes,
+      birthType, initialHealthStatus, colostrumGiven
+    } = req.body;
+    
+    // Default values for a calf
+    const species = 'Cattle';
+    const trackingType = 'Individual';
+    const category = 'Calf';
+    const source = 'Farm-born';
+    
+    // Auto-calculate life stage (should be 'Calf')
+    const lifeStage = calculateLifeStage(birthDate, gender);
+
+    const newCalf = new Livestock({
+      user: req.user.id,
+      tagId, species, trackingType, category, breed, birthDate, gender, 
+      birthWeight, currentWeight: birthWeight, source, motherTagId, fatherTagId, lifeStage, 
+      notes: `Birth Type: ${birthType}, Colostrum: ${colostrumGiven}. ${notes || ''}`,
+      status: 'Growing'
+    });
+
+    const savedCalf = await newCalf.save();
+
+    // Generate initial health record
+    if (initialHealthStatus) {
+      const newMedical = new MedicalRecord({
+        user: req.user.id,
+        livestock: savedCalf._id,
+        type: 'Other',
+        name: 'Birth Health Check',
+        reason: 'Newborn Assessment',
+        status: 'COMPLETED',
+        notes: `Initial Status: ${initialHealthStatus}`,
+        date: new Date(birthDate)
+      });
+      await newMedical.save();
+    }
+
+    // Schedule 1st deworming/vaccination (e.g., in 7 days)
+    const nextWeek = new Date(birthDate);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    
+    const scheduledVax = new MedicalRecord({
+      user: req.user.id,
+      livestock: savedCalf._id,
+      type: 'Vaccine',
+      name: 'Initial Calf Deworming/Vaccine',
+      status: 'UPCOMING',
+      nextDueDate: nextWeek
+    });
+    await scheduledVax.save();
+
+    res.status(201).json(savedCalf);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'An animal with this Tag ID already exists.' });
+    }
+    console.error('Error registering birth:', error);
+    res.status(500).json({ message: 'Server error while registering birth' });
+  }
+});
+
+// GET /api/livestock/:id/timeline - Get unified lifecycle timeline
+router.get('/:id/timeline', auth, async (req, res) => {
+  try {
+    const animalId = req.params.id;
+    const animal = await Livestock.findOne({ _id: animalId, user: req.user.id });
+    if (!animal) return res.status(404).json({ message: 'Animal not found' });
+
+    // Fetch all related records
+    const medical = await MedicalRecord.find({ livestock: animalId }).sort({ date: 1, nextDueDate: 1 });
+    const breeding = await BreedingRecord.find({ livestock: animalId }).sort({ eventDate: 1 });
+    
+    // Construct timeline events
+    const timeline = [];
+
+    // 1. Birth Event
+    if (animal.birthDate) {
+      timeline.push({
+        id: `birth-${animalId}`,
+        type: 'Birth',
+        title: 'Born',
+        date: animal.birthDate,
+        details: animal.source === 'Farm-born' ? 'Born on farm' : 'Purchased/Added',
+        status: 'COMPLETED'
+      });
+    }
+
+    // 2. Medical Events
+    medical.forEach(m => {
+      // If it was completed, add it as a past event
+      if (m.date && m.status === 'COMPLETED') {
+        timeline.push({
+          id: `med-done-${m._id}`,
+          type: 'Medical',
+          title: m.name,
+          date: m.date,
+          details: `Type: ${m.type}. ${m.notes || ''}`,
+          status: 'COMPLETED'
+        });
+      }
+      // If it is scheduled/upcoming
+      if (m.nextDueDate && m.status === 'UPCOMING') {
+        timeline.push({
+          id: `med-due-${m._id}`,
+          type: 'Medical',
+          title: m.name,
+          date: m.nextDueDate,
+          details: `Scheduled ${m.type}. ${m.notes || ''}`,
+          status: 'UPCOMING'
+        });
+      }
+    });
+
+    // 3. Breeding Events
+    breeding.forEach(b => {
+      timeline.push({
+        id: `breed-${b._id}`,
+        type: 'Breeding',
+        title: b.eventType,
+        date: b.eventDate,
+        details: `Outcome: ${b.outcome}. ${b.notes || ''}`,
+        status: b.outcome === 'Pending' ? 'UPCOMING' : 'COMPLETED'
+      });
+
+      if (b.expectedDeliveryDate && (b.outcome === 'Pending' || b.outcome === 'Confirmed Pregnant')) {
+        timeline.push({
+          id: `delivery-${b._id}`,
+          type: 'Calving',
+          title: 'Expected Calving',
+          date: b.expectedDeliveryDate,
+          details: 'Based on breeding record',
+          status: 'UPCOMING'
+        });
+      }
+    });
+
+    // Sort timeline by date
+    timeline.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.json(timeline);
+  } catch (error) {
+    console.error('Error fetching timeline:', error);
+    res.status(500).json({ message: 'Server error while fetching timeline' });
   }
 });
 

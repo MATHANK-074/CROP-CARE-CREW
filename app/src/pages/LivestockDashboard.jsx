@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { 
   FaPaw as FaCow, FaSyringe, FaPlus, FaExclamationTriangle, 
   FaCheckCircle, FaSearch, FaHistory, FaBabyCarriage, FaStethoscope,
-  FaLeaf, FaChartLine
+  FaLeaf, FaChartLine, FaBuilding, FaChartBar, FaBell, FaBrain
 } from 'react-icons/fa';
 import LivestockCalendar from '../components/livestock/LivestockCalendar';
 import FeedOptimizationDashboard from '../components/livestock/FeedOptimizationDashboard';
@@ -31,7 +31,9 @@ const LivestockDashboard = () => {
   
   const initialAnimalState = { 
     tagId: '', category: 'Cow', breed: '', gender: 'Female', 
-    status: 'Growing', weight: '', ageNumber: '', ageUnit: 'Years', buyingPrice: '', expectedDeliveryDate: '' 
+    status: 'Growing', weight: '', birthWeight: '', currentWeight: '', source: 'Purchased',
+    motherTagId: '', fatherTagId: '', birthDate: '',
+    ageNumber: '', ageUnit: 'Years', buyingPrice: '', expectedDeliveryDate: '' 
   };
   const [newAnimal, setNewAnimal] = useState(initialAnimalState);
   const [medicalForm, setMedicalForm] = useState({ type: 'Vaccine', name: '', date: '', notes: '' });
@@ -339,10 +341,7 @@ const LivestockDashboard = () => {
       {/* TABS */}
       <div className="flex border-b overflow-x-auto whitespace-nowrap bg-white sticky top-0 z-10 px-4">
           <button onClick={() => setActiveTab('assets')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'assets' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
-            <FaChartLine className="mr-2" /> {t('Farm Assets', 'Farm Assets')}
-          </button>
-          <button onClick={() => setActiveTab('alerts')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'alerts' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
-            <FaExclamationTriangle className="mr-2" /> {t('Alert Center', 'Alert Center')}
+            <FaBuilding className="mr-2" /> {t('Farm Assets', 'Farm Assets')}
           </button>
           <button onClick={() => setActiveTab('herd')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'herd' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
             <FaCow className="mr-2" /> {t('Herd Directory', 'Herd Directory')}
@@ -350,14 +349,17 @@ const LivestockDashboard = () => {
           <button onClick={() => setActiveTab('feed')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'feed' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
             <FaLeaf className="mr-2" /> {t('Feed Management', 'Feed Management')}
           </button>
+          <button onClick={() => setActiveTab('milk_analytics')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'milk_analytics' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
+            <FaChartBar className="mr-2" /> {t('Milk Analytics', 'Milk Analytics')}
+          </button>
           <button onClick={() => setActiveTab('reproductive')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'reproductive' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
             <FaBabyCarriage className="mr-2" /> {t('Reproductive AI', 'Reproductive AI')}
           </button>
-          <button onClick={() => setActiveTab('milk_analytics')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'milk_analytics' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
-            <FaChartLine className="mr-2" /> {t('Milk Analytics', 'Milk Analytics')}
+          <button onClick={() => setActiveTab('alerts')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'alerts' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
+            <FaBell className="mr-2" /> {t('Alert Center', 'Alert Center')}
           </button>
           <button onClick={() => setActiveTab('intelligence')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'intelligence' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
-            <FaChartLine className="mr-2" /> {t('Farm Intelligence', 'Farm Intelligence')}
+            <FaBrain className="mr-2" /> {t('Farm Intelligence', 'Farm Intelligence')}
           </button>
         </div>
 
@@ -408,8 +410,8 @@ const LivestockDashboard = () => {
                 <div className="p-4 rounded-full bg-blue-100 text-blue-600 mr-4">
                   <FaCow size={24} />
                 </div>
-                <div className="overflow-hidden">
-                  <p className="text-gray-500 text-sm whitespace-nowrap overflow-hidden text-ellipsis">{t('livestock.total_animals', 'Total Animals')}</p>
+                <div className="overflow-visible">
+                  <p className="text-gray-500 text-sm">{t('livestock.total_animals', 'Total Animals')}</p>
                   <h3 className="text-2xl font-bold text-gray-800">{stats.totalAnimals}</h3>
                 </div>
               </div>
@@ -420,8 +422,8 @@ const LivestockDashboard = () => {
                 <div className="p-4 rounded-full bg-green-100 text-green-600 mr-4">
                   <FaCheckCircle size={24} />
                 </div>
-                <div className="overflow-hidden">
-                  <p className="text-gray-500 text-sm whitespace-nowrap overflow-hidden text-ellipsis">{t('livestock.milking_cows', 'Milking Cows')}</p>
+                <div className="overflow-visible">
+                  <p className="text-gray-500 text-sm">{t('livestock.milking_cows', 'Milking Cows')}</p>
                   <h3 className="text-2xl font-bold text-gray-800">{stats.milkingCows}</h3>
                 </div>
               </div>
@@ -432,8 +434,8 @@ const LivestockDashboard = () => {
                 <div className="p-4 rounded-full bg-purple-100 text-purple-600 mr-4">
                   <FaBabyCarriage size={24} />
                 </div>
-                <div className="overflow-hidden">
-                  <p className="text-gray-500 text-sm whitespace-nowrap overflow-hidden text-ellipsis">{t('livestock.pregnant_cows', 'Pregnant Cows')}</p>
+                <div className="overflow-visible">
+                  <p className="text-gray-500 text-sm">{t('livestock.pregnant_cows', 'Pregnant Cows')}</p>
                   <h3 className="text-2xl font-bold text-gray-800">{stats.pregnantCows}</h3>
                 </div>
               </div>
@@ -444,8 +446,8 @@ const LivestockDashboard = () => {
                 <div className="p-4 rounded-full bg-yellow-100 text-yellow-600 mr-4">
                   <FaCow size={20} />
                 </div>
-                <div className="overflow-hidden">
-                  <p className="text-gray-500 text-sm whitespace-nowrap overflow-hidden text-ellipsis">{t('livestock.calves', 'Calves')}</p>
+                <div className="overflow-visible">
+                  <p className="text-gray-500 text-sm">{t('livestock.calves', 'Calves')}</p>
                   <h3 className="text-2xl font-bold text-gray-800">{stats.calves}</h3>
                 </div>
               </div>
@@ -616,30 +618,60 @@ const LivestockDashboard = () => {
                   <input required type="text" value={newAnimal.tagId} onChange={e => setNewAnimal({...newAnimal, tagId: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50" placeholder={t('livestock.modal_tag_ph', 'e.g. COW-001')} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('livestock.modal_age', 'Age')}</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                  <select value={newAnimal.gender} onChange={e => setNewAnimal({...newAnimal, gender: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50">
+                    <option value="Female">Female</option>
+                    <option value="Male">Male</option>
+                    <option value="Mixed">Mixed (Flock)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('livestock.modal_age', 'Age / DOB')}</label>
                   <div className="flex space-x-2">
-                    <input type="number" min="0" value={newAnimal.ageNumber} onChange={e => setNewAnimal({...newAnimal, ageNumber: e.target.value})} className="w-2/3 p-2 border rounded-lg bg-gray-50" placeholder="e.g. 3" />
-                    <select value={newAnimal.ageUnit} onChange={e => setNewAnimal({...newAnimal, ageUnit: e.target.value})} className="w-1/3 p-2 border rounded-lg bg-gray-50">
-                      <option value="Years">{t('livestock.modal_age_years', 'Years')}</option>
-                      <option value="Months">{t('livestock.modal_age_months', 'Months')}</option>
+                    <input type="date" value={newAnimal.birthDate} onChange={e => setNewAnimal({...newAnimal, birthDate: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50 text-sm" title="Date of Birth" />
+                  </div>
+                  <div className="flex space-x-2 mt-2">
+                    <input type="number" min="0" value={newAnimal.ageNumber} onChange={e => setNewAnimal({...newAnimal, ageNumber: e.target.value})} className="w-2/3 p-2 border rounded-lg bg-gray-50 text-sm" placeholder="Or age..." />
+                    <select value={newAnimal.ageUnit} onChange={e => setNewAnimal({...newAnimal, ageUnit: e.target.value})} className="w-1/3 p-2 border rounded-lg bg-gray-50 text-sm">
+                      <option value="Years">{t('livestock.modal_age_years', 'Yrs')}</option>
+                      <option value="Months">{t('livestock.modal_age_months', 'Mos')}</option>
                     </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
+                  <div className="flex space-x-2">
+                    <input type="number" value={newAnimal.birthWeight} onChange={e => setNewAnimal({...newAnimal, birthWeight: e.target.value})} className="w-1/2 p-2 border rounded-lg bg-gray-50 text-sm" placeholder="Birth Wt" />
+                    <input type="number" value={newAnimal.currentWeight} onChange={e => setNewAnimal({...newAnimal, currentWeight: e.target.value})} className="w-1/2 p-2 border rounded-lg bg-gray-50 text-sm" placeholder="Current Wt" />
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Source & Parents</label>
+                  <select value={newAnimal.source} onChange={e => setNewAnimal({...newAnimal, source: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50 mb-2">
+                    <option value="Farm-born">Farm-born</option>
+                    <option value="Purchased">Purchased</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  <div className="flex space-x-2">
+                    <input type="text" value={newAnimal.motherTagId} onChange={e => setNewAnimal({...newAnimal, motherTagId: e.target.value})} className="w-1/2 p-2 border rounded-lg bg-gray-50 text-sm" placeholder="Mother Tag" />
+                    <input type="text" value={newAnimal.fatherTagId} onChange={e => setNewAnimal({...newAnimal, fatherTagId: e.target.value})} className="w-1/2 p-2 border rounded-lg bg-gray-50 text-sm" placeholder="Father Tag" />
+                  </div>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('livestock.modal_category', 'Category')}</label>
-                  <select value={newAnimal.category} onChange={e => setNewAnimal({...newAnimal, category: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50">
+                  <select value={newAnimal.category} onChange={e => setNewAnimal({...newAnimal, category: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50 mb-2">
                     <option value="Cow">{t('livestock.modal_cat_cow', 'Cow')}</option>
                     <option value="Buffalo">{t('livestock.modal_cat_buffalo', 'Buffalo')}</option>
                     <option value="Calf">{t('livestock.modal_cat_calf', 'Calf')}</option>
                     <option value="Bull">{t('livestock.modal_cat_bull', 'Bull')}</option>
                   </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('livestock.modal_breed', 'Breed')}</label>
-                  <input type="text" value={newAnimal.breed} onChange={e => setNewAnimal({...newAnimal, breed: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50" placeholder={t('livestock.modal_breed_ph', 'Jersey')} />
+                  <input type="text" value={newAnimal.breed} onChange={e => setNewAnimal({...newAnimal, breed: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50" placeholder={t('livestock.modal_breed_ph', 'Breed (e.g. Jersey)')} />
                 </div>
               </div>
 

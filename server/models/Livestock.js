@@ -44,11 +44,35 @@ const livestockSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Milking', 'Pregnant', 'Dry', 'Heifer', 'Growing', 'Sold', 'Deceased', 'Laying', 'Brooding', 'Molting'],
+    enum: ['Milking', 'Pregnant', 'Dry', 'Heifer', 'Growing', 'Sold', 'Deceased', 'Laying', 'Brooding', 'Molting', 'Lactating', 'Dry Cow'],
     default: 'Growing'
   },
   weight: {
     type: Number // in kg
+  },
+  birthWeight: {
+    type: Number // in kg
+  },
+  currentWeight: {
+    type: Number // in kg
+  },
+  source: {
+    type: String,
+    enum: ['Farm-born', 'Purchased', 'Other'],
+    default: 'Purchased'
+  },
+  motherTagId: {
+    type: String,
+    trim: true
+  },
+  fatherTagId: {
+    type: String,
+    trim: true
+  },
+  lifeStage: {
+    type: String,
+    enum: ['Calf', 'Growing Heifer', 'Growing Bull', 'Adult', 'Adult Non-Lactating', 'Special Care'],
+    default: 'Adult'
   },
   buyingPrice: {
     type: Number // in currency

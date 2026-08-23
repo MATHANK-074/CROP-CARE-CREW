@@ -34,8 +34,12 @@ const breedingRecordSchema = new mongoose.Schema({
   },
   outcome: {
     type: String,
-    enum: ['Pending', 'Confirmed Pregnant', 'Failed', 'Delivered Calf', 'Abortion'],
+    enum: ['Pending', 'Confirmed Pregnant', 'Failed', 'Delivered Calf', 'Abortion', 'Follow-up Required'],
     default: 'Pending'
+  },
+  pregnancyAttemptNumber: {
+    type: Number,
+    default: 1
   },
   notes: {
     type: String

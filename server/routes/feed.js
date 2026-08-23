@@ -103,10 +103,10 @@ router.delete('/:id', auth, async (req, res) => {
 });
 
 // @route   POST api/feed/:id/log
-// @desc    Log feed action (Consume or Restock)
+// @desc    Log feed action (Consume or Restock or Adjust)
 // @access  Private
 router.post('/:id/log', auth, async (req, res) => {
-  const { action, quantity, cost, notes, date } = req.body;
+  const { action, quantity, cost, notes, date, supplier, batchNumber, expiryDate } = req.body;
 
   try {
     let feedStock = await FeedStock.findById(req.params.id);
@@ -114,19 +114,35 @@ router.post('/:id/log', auth, async (req, res) => {
     if (!feedStock) return res.status(404).json({ msg: 'Feed stock not found' });
     if (feedStock.user.toString() !== req.user.id) return res.status(401).json({ msg: 'Not authorized' });
 
-    // Validate quantity
-    if (action === 'Consumed' && feedStock.quantity < quantity) {
-      return res.status(400).json({ msg: 'Insufficient stock quantity' });
+    const numQuantity = Number(quantity);
+    if (isNaN(numQuantity) || numQuantity <= 0) {
+      return res.status(400).json({ msg: 'Valid quantity is required' });
     }
 
-    // Update stock quantity
-    if (action === 'Consumed') {
-      feedStock.quantity -= Number(quantity);
-    } else if (action === 'Restocked' || action === 'Adjustment') {
-      feedStock.quantity += Number(quantity);
-      if (action === 'Restocked') feedStock.lastRestocked = date || Date.now();
+    const previousStock = feedStock.quantity || 0;
+    let newStock = previousStock;
+
+    const subtractActions = ['CONSUMPTION', 'ADJUSTMENT_REMOVE', 'WASTAGE', 'SPOILAGE', 'Consumed'];
+    const addActions = ['PURCHASE', 'RESTOCK', 'ADJUSTMENT_ADD', 'Restocked', 'Adjustment'];
+
+    if (subtractActions.includes(action)) {
+      if (previousStock < numQuantity) {
+        return res.status(400).json({ msg: 'Insufficient stock quantity for this operation' });
+      }
+      newStock = previousStock - numQuantity;
+    } else if (addActions.includes(action)) {
+      newStock = previousStock + numQuantity;
+      if (['PURCHASE', 'RESTOCK', 'Restocked'].includes(action)) {
+        feedStock.lastRestocked = date || Date.now();
+        if (cost !== undefined && cost !== null) {
+           feedStock.costPerUnit = cost; // Optional: Update the master cost if price changes
+        }
+      }
+    } else {
+      return res.status(400).json({ msg: 'Invalid action type' });
     }
 
+    feedStock.quantity = newStock;
     await feedStock.save();
 
     // Create log entry
@@ -134,8 +150,13 @@ router.post('/:id/log', auth, async (req, res) => {
       user: req.user.id,
       feedStock: req.params.id,
       action,
-      quantity,
+      quantity: numQuantity,
+      previousStock,
+      newStock,
       cost,
+      supplier,
+      batchNumber,
+      expiryDate,
       notes,
       date: date || Date.now()
     });

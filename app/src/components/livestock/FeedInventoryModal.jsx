@@ -187,9 +187,25 @@ const FeedInventoryModal = ({ onClose, onUpdate }) => {
                       onChange={e => setNewFeed({...newFeed, feedType: e.target.value})}
                     >
                       <option value="Green Fodder">Green Fodder</option>
+                      <option value="Napier Grass">Napier Grass</option>
+                      <option value="Paddy Straw">Paddy Straw</option>
                       <option value="Dry Fodder">Dry Fodder</option>
-                      <option value="Concentrates">Concentrates</option>
+                      <option value="Concentrate Feed">Concentrate Feed</option>
+                      <option value="Rice Bran">Rice Bran</option>
+                      <option value="Wheat Bran">Wheat Bran</option>
+                      <option value="Groundnut Cake">Groundnut Cake</option>
+                      <option value="Cottonseed Cake">Cottonseed Cake</option>
+                      <option value="Coconut Cake">Coconut Cake</option>
+                      <option value="Horse Gram">Horse Gram</option>
+                      <option value="Bengal Gram (Sundal)">Bengal Gram (Sundal)</option>
+                      <option value="Maize">Maize</option>
+                      <option value="Broken Rice">Broken Rice</option>
+                      <option value="Millets">Millets</option>
+                      <option value="Tapioca">Tapioca</option>
+                      <option value="Calf Starter">Calf Starter</option>
                       <option value="Mineral Mixture">Mineral Mixture</option>
+                      <option value="Common Salt">Common Salt</option>
+                      <option value="Special Care Feed">Special Care Feed</option>
                       <option value="Other">Other</option>
                     </select>
                   </div>

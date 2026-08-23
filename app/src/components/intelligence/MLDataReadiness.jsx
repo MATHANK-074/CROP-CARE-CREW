@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { FaBrain, FaDatabase, FaCogs, FaCheckCircle, FaDownload, FaSpinner, FaEye } from 'react-icons/fa';
 
 const buildApiUrl = (path) => {
-  return `http://localhost:5002/api${path}`;
+  return `http://localhost:5005/api${path}`;
 };
 
 export default function MLDataReadiness() {
@@ -43,7 +43,7 @@ export default function MLDataReadiness() {
               viewMode === 'farmer' ? 'bg-white shadow-sm font-bold text-purple-600' : 'text-gray-600 hover:text-gray-800'
             }`}
           >
-            <FaEye className="mr-2" /> Farmer View
+            <FaEye className="mr-2" /> {t('intelligence.ml_ready.farmer_view', 'Farmer View')}
           </button>
           <button
             onClick={() => setViewMode('admin')}
@@ -51,7 +51,7 @@ export default function MLDataReadiness() {
               viewMode === 'admin' ? 'bg-white shadow-sm font-bold text-gray-800' : 'text-gray-600 hover:text-gray-800'
             }`}
           >
-            <FaCogs className="mr-2" /> Admin / Technical View
+            <FaCogs className="mr-2" /> {t('intelligence.ml_ready.admin_view', 'Admin / Technical View')}
           </button>
         </div>
       </div>
@@ -61,25 +61,25 @@ export default function MLDataReadiness() {
           <div className="w-20 h-20 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
             <FaBrain className="text-4xl" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Smart Farm Capabilities</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">{t('intelligence.ml_ready.smart_capabilities', 'Smart Farm Capabilities')}</h2>
           <p className="text-gray-600 text-lg mb-8 leading-relaxed">
-            Your farm is collecting high-quality data every day. By consistently logging milk, feed, and health records, you are building a powerful history. Soon, our advanced system will be able to use this history to provide highly accurate, personalized predictions for your animals to help you maximize profit and reduce costs.
+            {t('intelligence.ml_ready.description', 'Your farm is collecting high-quality data every day. By consistently logging milk, feed, and health records, you are building a powerful history. Soon, our advanced system will be able to use this history to provide highly accurate, personalized predictions for your animals to help you maximize profit and reduce costs.')}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
             <div className="bg-green-50 p-4 rounded-lg border border-green-100">
               <FaCheckCircle className="text-green-500 mb-2 text-xl" />
-              <h4 className="font-bold text-gray-800">Milk Forecasting</h4>
-              <p className="text-sm text-gray-600 mt-1">Predict yield drops before they happen.</p>
+              <h4 className="font-bold text-gray-800">{t('intelligence.ml_ready.milk_forecasting', 'Milk Forecasting')}</h4>
+              <p className="text-sm text-gray-600 mt-1">{t('intelligence.ml_ready.milk_forecasting_desc', 'Predict yield drops before they happen.')}</p>
             </div>
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
               <FaCheckCircle className="text-blue-500 mb-2 text-xl" />
-              <h4 className="font-bold text-gray-800">Feed Efficiency</h4>
-              <p className="text-sm text-gray-600 mt-1">Optimize rations for maximum margin.</p>
+              <h4 className="font-bold text-gray-800">{t('intelligence.ml_ready.feed_efficiency', 'Feed Efficiency')}</h4>
+              <p className="text-sm text-gray-600 mt-1">{t('intelligence.ml_ready.feed_efficiency_desc', 'Optimize rations for maximum margin.')}</p>
             </div>
             <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
               <FaCheckCircle className="text-orange-500 mb-2 text-xl" />
-              <h4 className="font-bold text-gray-800">Health Alerts</h4>
-              <p className="text-sm text-gray-600 mt-1">Early warnings for disease risks.</p>
+              <h4 className="font-bold text-gray-800">{t('intelligence.ml_ready.health_alerts', 'Health Alerts')}</h4>
+              <p className="text-sm text-gray-600 mt-1">{t('intelligence.ml_ready.health_alerts_desc', 'Early warnings for disease risks.')}</p>
             </div>
           </div>
         </div>

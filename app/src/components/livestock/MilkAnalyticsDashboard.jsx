@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FaChartBar, FaSun, FaMoon, FaTrophy, FaCalendarAlt, FaExclamationCircle } from 'react-icons/fa';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -10,6 +11,7 @@ const buildApiUrl = (path) => {
 };
 
 const MilkAnalyticsDashboard = () => {
+  const { t } = useTranslation();
   const [data, setData] = useState({
     today: { total: 0, morning: 0, evening: 0 },
     trend: [],
@@ -58,13 +60,13 @@ const MilkAnalyticsDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-blue-600 rounded-xl p-6 shadow-md text-white">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold opacity-90">Today's Total Yield</h3>
+            <h3 className="text-lg font-bold opacity-90">{t('milk_analytics.today_yield', "Today's Total Yield")}</h3>
             <div className="p-3 bg-white bg-opacity-20 rounded-lg">
               <FaChartBar size={24} />
             </div>
           </div>
-          <div className="text-4xl font-bold mb-1">{(data.today?.total || 0).toFixed(1)} <span className="text-xl font-normal opacity-80">Liters</span></div>
-          <p className="text-sm opacity-80">Farm-wide production</p>
+          <div className="text-4xl font-bold mb-1">{(data.today?.total || 0).toFixed(1)} <span className="text-xl font-normal opacity-80">{t('milk_analytics.liters', 'Liters')}</span></div>
+          <p className="text-sm opacity-80">{t('milk_analytics.farm_wide_production', 'Farm-wide production')}</p>
         </div>
 
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex items-center">
@@ -72,7 +74,7 @@ const MilkAnalyticsDashboard = () => {
             <FaSun size={24} />
           </div>
           <div>
-            <p className="text-gray-500 text-sm">Morning Session</p>
+            <p className="text-gray-500 text-sm">{t('milk_analytics.morning_session', 'Morning Session')}</p>
             <h3 className="text-2xl font-bold text-gray-800">{(data.today?.morning || 0).toFixed(1)} L</h3>
           </div>
         </div>
@@ -82,7 +84,7 @@ const MilkAnalyticsDashboard = () => {
             <FaMoon size={24} />
           </div>
           <div>
-            <p className="text-gray-500 text-sm">Evening Session</p>
+            <p className="text-gray-500 text-sm">{t('milk_analytics.evening_session', 'Evening Session')}</p>
             <h3 className="text-2xl font-bold text-gray-800">{(data.today?.evening || 0).toFixed(1)} L</h3>
           </div>
         </div>
@@ -91,7 +93,7 @@ const MilkAnalyticsDashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Trend Chart */}
         <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800 mb-6">7-Day Production Trend</h3>
+          <h3 className="text-lg font-bold text-gray-800 mb-6">{t('milk_analytics.7_day_trend', '7-Day Production Trend')}</h3>
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.trend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -113,7 +115,7 @@ const MilkAnalyticsDashboard = () => {
         {/* Leaderboard */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center">
-            <FaTrophy className="text-yellow-500 mr-2" /> Top Performers
+            <FaTrophy className="text-yellow-500 mr-2" /> {t('milk_analytics.top_performers', 'Top Performers')}
           </h3>
           {data.leaderboard.length === 0 ? (
             <p className="text-gray-500 text-sm text-center py-8">Not enough data to rank cows.</p>
@@ -137,7 +139,7 @@ const MilkAnalyticsDashboard = () => {
                   </div>
                   <div className="text-right">
                     <div className="font-bold text-blue-600">{(cow.totalYield || 0).toFixed(1)} L</div>
-                    <div className="text-xs text-gray-500">All-Time</div>
+                    <div className="text-xs text-gray-500">{t('milk_analytics.all_time', 'All-Time')}</div>
                   </div>
                 </div>
               ))}
@@ -149,28 +151,28 @@ const MilkAnalyticsDashboard = () => {
       {/* Forecasting Section */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
         <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center">
-          <FaCalendarAlt className="text-purple-600 mr-2" /> AI Yield Forecast (Pregnancy-Aware)
+          <FaCalendarAlt className="text-purple-600 mr-2" /> {t('milk_analytics.ai_yield_forecast', 'AI Yield Forecast (Pregnancy-Aware)')}
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="bg-purple-50 rounded-lg p-5 border border-purple-100">
-            <p className="text-purple-800 text-sm font-medium mb-1">Estimated Next 7 Days</p>
+            <p className="text-purple-800 text-sm font-medium mb-1">{t('milk_analytics.estimated_7_days', 'Estimated Next 7 Days')}</p>
             <h4 className="text-3xl font-bold text-purple-900">{(data.forecast?.next7Days || 0).toFixed(0)} <span className="text-lg font-normal opacity-80">L</span></h4>
-            <p className="text-xs text-purple-600 mt-2">Adjusted for natural decay</p>
+            <p className="text-xs text-purple-600 mt-2">{t('milk_analytics.adjusted_natural_decay', 'Adjusted for natural decay')}</p>
           </div>
           
           <div className="bg-indigo-50 rounded-lg p-5 border border-indigo-100">
-            <p className="text-indigo-800 text-sm font-medium mb-1">Estimated Next 30 Days</p>
+            <p className="text-indigo-800 text-sm font-medium mb-1">{t('milk_analytics.estimated_30_days', 'Estimated Next 30 Days')}</p>
             <h4 className="text-3xl font-bold text-indigo-900">{(data.forecast?.next30Days || 0).toFixed(0)} <span className="text-lg font-normal opacity-80">L</span></h4>
-            <p className="text-xs text-indigo-600 mt-2">Accounts for dry-off periods</p>
+            <p className="text-xs text-indigo-600 mt-2">{t('milk_analytics.accounts_dry_off', 'Accounts for dry-off periods')}</p>
           </div>
 
           <div className="bg-orange-50 rounded-lg p-5 border border-orange-100 lg:col-span-1 md:col-span-2">
             <h4 className="font-bold text-orange-800 flex items-center mb-3">
-              <FaExclamationCircle className="mr-2" /> Drying Off Alerts
+              <FaExclamationCircle className="mr-2" /> {t('milk_analytics.drying_off_alerts', 'Drying Off Alerts')}
             </h4>
             {!data.forecast?.dryingOffSoon || data.forecast.dryingOffSoon.length === 0 ? (
-              <p className="text-sm text-orange-700">No cows entering dry period in the next 30 days.</p>
+              <p className="text-sm text-orange-700">{t('milk_analytics.no_cows_drying', 'No cows entering dry period in the next 30 days.')}</p>
             ) : (
               <ul className="space-y-2">
                 {data.forecast.dryingOffSoon.map(cow => (
