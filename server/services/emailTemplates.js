@@ -44,7 +44,7 @@ function createDiseaseAlertEmail({ user, disease, description, location, bilingu
     <div class="container">
       <div class="header">
         <h1>🚨 Disease Alert / நோய் எச்சரிக்கை</h1>
-        <p style="margin: 5px 0 0 0; opacity: 0.9;">AgriTech Smart Agriculture System</p>
+        <p style="margin: 5px 0 0 0; opacity: 0.9;">Krish Care 360 Smart Agriculture System</p>
       </div>
       
       <div class="content">
@@ -73,9 +73,9 @@ function createDiseaseAlertEmail({ user, disease, description, location, bilingu
         
         <div class="info-box">
           <p><strong>📞 Need Help?</strong></p>
-          <p>📧 Email: support@agritech.com</p>
+          <p>📧 Email: support@Krish Care 360.com</p>
           <p>📱 Phone: +91-9876543210</p>
-          <a href="#" class="button">📱 Open AgriTech App</a>
+          <a href="#" class="button">📱 Open Krish Care 360 App</a>
         </div>
         
         <!-- Divider -->
@@ -106,14 +106,14 @@ function createDiseaseAlertEmail({ user, disease, description, location, bilingu
         
         <div class="info-box">
           <p><strong>📞 உதவி வேண்டுமா?</strong></p>
-          <p>📧 மின்னஞ்சல்: support@agritech.com</p>
+          <p>📧 மின்னஞ்சல்: support@Krish Care 360.com</p>
           <p>📱 தொலைபேசி: +91-9876543210</p>
-          <a href="#" class="button">📱 AgriTech பயன்பாட்டைத் திறக்கவும்</a>
+          <a href="#" class="button">📱 Krish Care 360 பயன்பாட்டைத் திறக்கவும்</a>
         </div>
       </div>
       
       <div class="footer">
-        <p><strong>AgriTech Team / AgriTech குழு</strong></p>
+        <p><strong>Krish Care 360 Team / Krish Care 360 குழு</strong></p>
         <p>Smart Agriculture Solutions / ஸ்மார்ட் விவசாய தீர்வுகள்</p>
         <p style="margin-top: 10px; font-size: 11px;">
           This alert is based on nearby farmer reports. Always consult local experts.<br>
@@ -146,11 +146,11 @@ WHAT TO DO:
 ✓ Monitor nearby crops regularly
 
 Need help? 
-📧 Email: support@agritech.com
+📧 Email: support@Krish Care 360.com
 📱 Phone: +91-9876543210
 
 Best regards,
-AgriTech Team
+Krish Care 360 Team
 Smart Agriculture Solutions
 
 🇮🇳 தமிழ்:
@@ -171,11 +171,11 @@ Smart Agriculture Solutions
 ✓ அருகிலுள்ள பயிர்களை தொடர்ந்து கண்காணிக்கவும்
 
 உதவி வேண்டுமா?
-📧 மின்னஞ்சல்: support@agritech.com
+📧 மின்னஞ்சல்: support@Krish Care 360.com
 📱 தொலைபேசி: +91-9876543210
 
 நன்றி,
-AgriTech குழு
+Krish Care 360 குழு
 ஸ்மார்ட் விவசாய தீர்வுகள்
 
 ---
@@ -197,14 +197,14 @@ This alert is based on nearby farmer reports.
  * @returns {Object} Email template
  */
 function createTestEmail({ email }) {
-  const subject = '✅ AgriTech Email Test - System Working';
+  const subject = '✅ Krish Care 360 Email Test - System Working';
 
   const htmlContent = `
   <!DOCTYPE html>
   <html>
   <head>
     <meta charset="UTF-8">
-    <title>AgriTech Test Email</title>
+    <title>Krish Care 360 Test Email</title>
     <style>
       body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
       .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -217,16 +217,16 @@ function createTestEmail({ email }) {
   <body>
     <div class="container">
       <div class="header">
-        <h2>🌾 AgriTech Email Test</h2>
+        <h2>🌾 Krish Care 360 Email Test</h2>
       </div>
       <div class="content">
         <div class="emoji">✅</div>
         <h3>Email System Working!</h3>
-        <p>This is a test email from your AgriTech system.</p>
+        <p>This is a test email from your Krish Care 360 system.</p>
         <p><strong>Recipient:</strong> ${email}</p>
         <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
         <div class="footer">
-          <p><strong>AgriTech Team</strong><br>
+          <p><strong>Krish Care 360 Team</strong><br>
           Smart Agriculture Solutions</p>
         </div>
       </div>
@@ -236,15 +236,15 @@ function createTestEmail({ email }) {
   `;
 
   const textContent = `
-AgriTech Email Test
+Krish Care 360 Email Test
 
 Email System Working!
 
-This is a test email from your AgriTech system.
+This is a test email from your Krish Care 360 system.
 Recipient: ${email}
 Date: ${new Date().toLocaleString()}
 
-AgriTech Team
+Krish Care 360 Team
 Smart Agriculture Solutions
   `;
 
@@ -264,7 +264,7 @@ Smart Agriculture Solutions
  * @returns {Object} Email template
  */
 function createSummaryEmail({ summary, period, userEmail }) {
-  const subject = `📊 AgriTech: Disease Alert Summary (${summary.alerts} alerts)`;
+  const subject = `📊 Krish Care 360: Disease Alert Summary (${summary.alerts} alerts)`;
 
   let emailText = `Disease Alert Summary (Last ${period} days)\n\n`;
   let emailHtml = `
@@ -290,7 +290,7 @@ function createSummaryEmail({ summary, period, userEmail }) {
       <p style="margin-top: 20px;">Total alerts: <strong>${summary.alerts}</strong></p>
       <p style="color: #666; font-size: 12px; margin-top: 32px;">
         This summary was generated on ${new Date().toLocaleString()}<br>
-        AgriTech Disease Detection System
+        Krish Care 360 Disease Detection System
       </p>
     </div>
   `;

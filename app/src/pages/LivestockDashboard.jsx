@@ -8,6 +8,10 @@ import {
 import LivestockCalendar from '../components/livestock/LivestockCalendar';
 import FeedOptimizationDashboard from '../components/livestock/FeedOptimizationDashboard';
 import ReproductiveDashboard from './ReproductiveDashboard';
+import MilkAnalyticsDashboard from '../components/livestock/MilkAnalyticsDashboard';
+import FarmAssetDashboard from '../components/livestock/FarmAssetDashboard';
+import AlertCenter from '../components/livestock/AlertCenter';
+import IntelligenceDashboard from './IntelligenceDashboard';
 
 const buildApiUrl = (path) => {
   return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api${path}`;
@@ -22,6 +26,7 @@ const LivestockDashboard = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showMedicalModal, setShowMedicalModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showMilkModal, setShowMilkModal] = useState(false);
   const [selectedAnimal, setSelectedAnimal] = useState(null);
   
   const initialAnimalState = { 
@@ -30,10 +35,13 @@ const LivestockDashboard = () => {
   };
   const [newAnimal, setNewAnimal] = useState(initialAnimalState);
   const [medicalForm, setMedicalForm] = useState({ type: 'Vaccine', name: '', date: '', notes: '' });
-  const [animalHistory, setAnimalHistory] = useState({ breeding: [], medical: [] });
+  const [milkForm, setMilkForm] = useState({ date: new Date().toISOString().split('T')[0], morningYield: '', eveningYield: '', notes: '' });
+  const [milkLoading, setMilkLoading] = useState(false);
+  const [animalHistory, setAnimalHistory] = useState({ breeding: [], medical: [], milk: [] });
   const [historyLoading, setHistoryLoading] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
   const [error, setError] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const runAIEvaluation = async () => {
     if (!selectedAnimal) return;
@@ -59,8 +67,38 @@ const LivestockDashboard = () => {
     }
   };
   
-  // Tabs: 'herd', 'feed', 'finance'
-  const [activeTab, setActiveTab] = useState('herd');
+  const handleImageUpload = async (e) => {
+    if (!selectedAnimal || !e.target.files[0]) return;
+    const file = e.target.files[0];
+    setUploadingImage(true);
+    const formData = new FormData();
+    formData.append('profileImage', file);
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`/livestock/${selectedAnimal._id}/profile-image`), {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const updatedAnimal = { ...selectedAnimal, profile_img: data.imageUrl };
+        setSelectedAnimal(updatedAnimal);
+        setLivestockList(prev => prev.map(a => a._id === selectedAnimal._id ? updatedAnimal : a));
+      } else {
+        alert('Failed to upload image');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error uploading image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Tabs: 'assets', 'herd', 'feed', 'finance'
+  const [activeTab, setActiveTab] = useState('assets');
 
   // Filtering states
   const [filterType, setFilterType] = useState('All'); // 'All', 'Milking', 'Pregnant', 'Calf'
@@ -200,6 +238,52 @@ const LivestockDashboard = () => {
     }
   };
 
+  const handleLogMilkSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedAnimal) return;
+    
+    // Validation
+    const m = parseFloat(milkForm.morningYield) || 0;
+    const ev = parseFloat(milkForm.eveningYield) || 0;
+    if (m === 0 && ev === 0) {
+      alert(t('livestock.milk_zero_error', 'At least one session (Morning or Evening) must have a value greater than 0.'));
+      return;
+    }
+    if (m < 0 || ev < 0) {
+      alert(t('livestock.milk_negative_error', 'Milk yield cannot be negative.'));
+      return;
+    }
+
+    setMilkLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`/livestock/${selectedAnimal._id}/milk/daily`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(milkForm)
+      });
+      
+      if (res.ok) {
+        setShowMilkModal(false);
+        setMilkForm({ date: new Date().toISOString().split('T')[0], morningYield: '', eveningYield: '', notes: '' });
+        alert(t('livestock.milk_saved_success', 'Milk record saved successfully.'));
+      } else if (res.status === 409) {
+        const errorData = await res.json();
+        alert(t('livestock.milk_duplicate_error', errorData.message || 'Record already exists for this date.'));
+      } else {
+        alert(t('livestock.milk_saved_error', 'Unable to save milk record. Please try again.'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert(t('livestock.milk_saved_error', 'Unable to save milk record. Please try again.'));
+    } finally {
+      setMilkLoading(false);
+    }
+  };
+
   const fetchAnimalHistory = async (animal) => {
     setSelectedAnimal(animal);
     setShowHistoryModal(true);
@@ -207,13 +291,15 @@ const LivestockDashboard = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { 'Authorization': `Bearer ${token}` };
-      const [breedRes, medRes] = await Promise.all([
+      const [breedRes, medRes, milkRes] = await Promise.all([
         fetch(buildApiUrl(`/livestock/${animal._id}/breeding`), { headers }),
-        fetch(buildApiUrl(`/livestock/${animal._id}/medical`), { headers })
+        fetch(buildApiUrl(`/livestock/${animal._id}/medical`), { headers }),
+        fetch(buildApiUrl(`/livestock/${animal._id}/milk`), { headers })
       ]);
       const breeding = breedRes.ok ? await breedRes.json() : [];
       const medical = medRes.ok ? await medRes.json() : [];
-      setAnimalHistory({ breeding, medical });
+      const milk = milkRes.ok ? await milkRes.json() : [];
+      setAnimalHistory({ breeding, medical, milk });
     } catch (err) {
       console.error(err);
     } finally {
@@ -244,33 +330,44 @@ const LivestockDashboard = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-800 flex items-center">
             <FaCow className="mr-3 text-green-600" />
-            Livestock Dashboard
+            {t('livestock.title', 'Livestock Dashboard')}
           </h1>
-          <p className="text-gray-500 mt-2">Manage your herd, feed inventory, and medical records.</p>
+          <p className="text-gray-500 mt-2">{t('livestock.subtitle', 'Manage your herd, feed inventory, and medical records.')}</p>
         </div>
       </div>
 
       {/* TABS */}
-      <div className="flex space-x-4 mb-8 border-b border-gray-200">
-        <button 
-          onClick={() => setActiveTab('herd')}
-          className={`pb-3 px-4 font-medium text-lg flex items-center transition-colors border-b-2 ${activeTab === 'herd' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-        >
-          <FaCow className="mr-2" /> {t('livestock.tab_herd', 'Herd Directory')}
-        </button>
-        <button 
-          onClick={() => setActiveTab('feed')}
-          className={`pb-3 px-4 font-medium text-lg flex items-center transition-colors border-b-2 ${activeTab === 'feed' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-        >
-          <FaLeaf className="mr-2" /> {t('livestock.tab_feed', 'Feed Management')}
-        </button>
-        <button 
-          onClick={() => setActiveTab('reproductive')}
-          className={`pb-3 px-4 font-medium text-lg flex items-center transition-colors border-b-2 ${activeTab === 'reproductive' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-        >
-          <FaBabyCarriage className="mr-2" /> {t('livestock.tab_reproductive', 'Reproductive AI')}
-        </button>
-      </div>
+      <div className="flex border-b overflow-x-auto whitespace-nowrap bg-white sticky top-0 z-10 px-4">
+          <button onClick={() => setActiveTab('assets')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'assets' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
+            <FaChartLine className="mr-2" /> {t('Farm Assets', 'Farm Assets')}
+          </button>
+          <button onClick={() => setActiveTab('alerts')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'alerts' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
+            <FaExclamationTriangle className="mr-2" /> {t('Alert Center', 'Alert Center')}
+          </button>
+          <button onClick={() => setActiveTab('herd')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'herd' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
+            <FaCow className="mr-2" /> {t('Herd Directory', 'Herd Directory')}
+          </button>
+          <button onClick={() => setActiveTab('feed')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'feed' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
+            <FaLeaf className="mr-2" /> {t('Feed Management', 'Feed Management')}
+          </button>
+          <button onClick={() => setActiveTab('reproductive')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'reproductive' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
+            <FaBabyCarriage className="mr-2" /> {t('Reproductive AI', 'Reproductive AI')}
+          </button>
+          <button onClick={() => setActiveTab('milk_analytics')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'milk_analytics' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
+            <FaChartLine className="mr-2" /> {t('Milk Analytics', 'Milk Analytics')}
+          </button>
+          <button onClick={() => setActiveTab('intelligence')} className={`px-4 py-4 font-bold flex items-center transition-colors ${activeTab === 'intelligence' ? 'text-green-600 border-b-2 border-green-600 bg-green-50' : 'text-gray-500 hover:text-green-600'}`}>
+            <FaChartLine className="mr-2" /> {t('Farm Intelligence', 'Farm Intelligence')}
+          </button>
+        </div>
+
+      {activeTab === 'assets' && (
+        <FarmAssetDashboard />
+      )}
+
+      {activeTab === 'alerts' && (
+        <AlertCenter />
+      )}
 
       {activeTab === 'feed' && (
         <FeedOptimizationDashboard />
@@ -278,6 +375,16 @@ const LivestockDashboard = () => {
 
       {activeTab === 'reproductive' && (
         <ReproductiveDashboard />
+      )}
+
+      {activeTab === 'milk_analytics' && (
+        <MilkAnalyticsDashboard />
+      )}
+
+      {activeTab === 'intelligence' && (
+        <div className="mt-4">
+          <IntelligenceDashboard />
+        </div>
       )}
 
       {activeTab === 'herd' && (
@@ -301,8 +408,8 @@ const LivestockDashboard = () => {
                 <div className="p-4 rounded-full bg-blue-100 text-blue-600 mr-4">
                   <FaCow size={24} />
                 </div>
-                <div>
-                  <p className="text-gray-500 text-sm">{t('livestock.total_animals', 'Total Animals')}</p>
+                <div className="overflow-hidden">
+                  <p className="text-gray-500 text-sm whitespace-nowrap overflow-hidden text-ellipsis">{t('livestock.total_animals', 'Total Animals')}</p>
                   <h3 className="text-2xl font-bold text-gray-800">{stats.totalAnimals}</h3>
                 </div>
               </div>
@@ -313,8 +420,8 @@ const LivestockDashboard = () => {
                 <div className="p-4 rounded-full bg-green-100 text-green-600 mr-4">
                   <FaCheckCircle size={24} />
                 </div>
-                <div>
-                  <p className="text-gray-500 text-sm">{t('livestock.milking_cows', 'Milking Cows')}</p>
+                <div className="overflow-hidden">
+                  <p className="text-gray-500 text-sm whitespace-nowrap overflow-hidden text-ellipsis">{t('livestock.milking_cows', 'Milking Cows')}</p>
                   <h3 className="text-2xl font-bold text-gray-800">{stats.milkingCows}</h3>
                 </div>
               </div>
@@ -325,8 +432,8 @@ const LivestockDashboard = () => {
                 <div className="p-4 rounded-full bg-purple-100 text-purple-600 mr-4">
                   <FaBabyCarriage size={24} />
                 </div>
-                <div>
-                  <p className="text-gray-500 text-sm">{t('livestock.pregnant_cows', 'Pregnant Cows')}</p>
+                <div className="overflow-hidden">
+                  <p className="text-gray-500 text-sm whitespace-nowrap overflow-hidden text-ellipsis">{t('livestock.pregnant_cows', 'Pregnant Cows')}</p>
                   <h3 className="text-2xl font-bold text-gray-800">{stats.pregnantCows}</h3>
                 </div>
               </div>
@@ -337,8 +444,8 @@ const LivestockDashboard = () => {
                 <div className="p-4 rounded-full bg-yellow-100 text-yellow-600 mr-4">
                   <FaCow size={20} />
                 </div>
-                <div>
-                  <p className="text-gray-500 text-sm">{t('livestock.calves', 'Calves')}</p>
+                <div className="overflow-hidden">
+                  <p className="text-gray-500 text-sm whitespace-nowrap overflow-hidden text-ellipsis">{t('livestock.calves', 'Calves')}</p>
                   <h3 className="text-2xl font-bold text-gray-800">{stats.calves}</h3>
                 </div>
               </div>
@@ -371,9 +478,18 @@ const LivestockDashboard = () => {
                     ) : (
                       filteredLivestock.map((animal) => (
                         <tr key={animal._id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                          <td className="p-4 font-medium text-gray-800">
-                            {animal.tagId}
-                            <div className="text-xs text-gray-500">{animal.category} • {animal.breed || 'Mixed'}</div>
+                          <td className="p-4 font-medium text-gray-800 flex items-center min-w-[150px] whitespace-nowrap">
+                            {animal.profile_img ? (
+                              <img src={animal.profile_img} alt={animal.tagId} className="w-10 h-10 rounded-full object-cover mr-3 border border-gray-200" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center mr-3 border border-gray-200">
+                                <FaCow />
+                              </div>
+                            )}
+                            <div>
+                              {animal.tagId}
+                              <div className="text-xs text-gray-500 whitespace-nowrap">{animal.category} • {animal.breed || 'Mixed'}</div>
+                            </div>
                           </td>
                           <td className="p-4 text-sm text-gray-600">
                             {animal.ageString || '-'} <br/>
@@ -388,7 +504,12 @@ const LivestockDashboard = () => {
                               {animal.status}
                             </span>
                           </td>
-                          <td className="p-4 flex space-x-2">
+                          <td className="p-4 flex flex-wrap gap-2">
+                            {animal.status === 'Milking' && (
+                              <button onClick={() => { setSelectedAnimal(animal); setShowMilkModal(true); }} className="text-sm text-blue-600 hover:text-blue-800 flex items-center bg-blue-50 px-2 py-1 rounded">
+                                <FaCow className="mr-1"/> {t('livestock.log_milk', 'Log Milk')}
+                              </button>
+                            )}
                             {animal.gender === 'Female' && animal.status !== 'Pregnant' && (
                               <button onClick={() => handleLogBreeding(animal._id, 'Artificial Insemination')} className="text-sm text-blue-600 hover:text-blue-800 flex items-center bg-blue-50 px-2 py-1 rounded">
                                 <FaSyringe className="mr-1"/> {t('livestock.log_ai', 'Log AI')}
@@ -600,14 +721,76 @@ const LivestockDashboard = () => {
         </div>
       )}
 
+      {/* Milk Log Modal */}
+      {showMilkModal && selectedAnimal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white p-8 rounded-xl shadow-xl w-full max-w-md">
+            <h2 className="text-2xl font-bold mb-2 text-gray-800">{t('livestock.log_milk_title', 'Log Daily Milk Yield')}</h2>
+            <p className="text-sm text-gray-500 mb-6">{t('livestock.animal_tag', 'For')} {selectedAnimal.tagId}</p>
+            
+            <form onSubmit={handleLogMilkSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('livestock.date', 'Date')}</label>
+                <input type="date" required value={milkForm.date} onChange={e => setMilkForm({...milkForm, date: e.target.value})} className="w-full p-3 border rounded-lg bg-gray-50" />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('livestock.morning_milk', 'Morning Milk (L)')}</label>
+                  <input type="number" step="0.1" value={milkForm.morningYield} onChange={e => setMilkForm({...milkForm, morningYield: e.target.value})} placeholder="e.g. 4.5" className="w-full p-3 border rounded-lg bg-gray-50 text-lg font-semibold" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('livestock.evening_milk', 'Evening Milk (L)')}</label>
+                  <input type="number" step="0.1" value={milkForm.eveningYield} onChange={e => setMilkForm({...milkForm, eveningYield: e.target.value})} placeholder="e.g. 3.8" className="w-full p-3 border rounded-lg bg-gray-50 text-lg font-semibold" />
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center">
+                <span className="text-sm font-bold text-blue-800">{t('livestock.total_daily_milk', 'Total Daily Milk')}</span>
+                <span className="text-2xl font-black text-blue-900">
+                  {((parseFloat(milkForm.morningYield) || 0) + (parseFloat(milkForm.eveningYield) || 0)).toFixed(1)} L
+                </span>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('livestock.notes', 'Notes (Optional)')}</label>
+                <textarea rows="2" value={milkForm.notes} onChange={e => setMilkForm({...milkForm, notes: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50" placeholder={t('livestock.notes_ph', 'Any observations...')} />
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button type="button" onClick={() => setShowMilkModal(false)} disabled={milkLoading} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">{t('livestock.cancel', 'Cancel')}</button>
+                <button type="submit" disabled={milkLoading} className={`px-4 py-2 text-white rounded-lg shadow-md ${milkLoading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                  {milkLoading ? t('livestock.saving', 'Saving...') : t('livestock.save_yield', 'Save Yield')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* History Modal */}
       {showHistoryModal && selectedAnimal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
           <div className="bg-white p-8 rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800">History: {selectedAnimal.tagId}</h2>
-                <p className="text-sm text-gray-500">{selectedAnimal.category} • {selectedAnimal.breed}</p>
+            <div className="flex justify-between items-start mb-6 border-b pb-4">
+              <div className="flex items-center">
+                <div className="relative group mr-4 cursor-pointer">
+                  {selectedAnimal.profile_img ? (
+                    <img src={selectedAnimal.profile_img} alt={selectedAnimal.tagId} className="w-20 h-20 rounded-full object-cover border-4 border-green-100" />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-green-100 text-green-600 flex items-center justify-center border-4 border-white text-3xl">
+                      <FaCow />
+                    </div>
+                  )}
+                  <label className="absolute inset-0 bg-black bg-opacity-50 text-white rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                    <span className="text-xs font-bold">{uploadingImage ? '...' : 'Upload'}</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImage} />
+                  </label>
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">History: {selectedAnimal.tagId}</h2>
+                  <p className="text-sm text-gray-500">{selectedAnimal.category} • {selectedAnimal.breed}</p>
+                </div>
               </div>
               <button onClick={() => setShowHistoryModal(false)} className="text-gray-500 hover:text-gray-800 text-xl font-bold">&times;</button>
             </div>
@@ -679,6 +862,46 @@ const LivestockDashboard = () => {
                         </li>
                       ))}
                     </ul>
+                  )}
+                </div>
+
+                {/* Milk History */}
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center border-b pb-2"><FaCow className="mr-2 text-blue-600"/> {t('livestock.milk_production_history', 'Milk Production History')}</h3>
+                  {animalHistory.milk.length === 0 ? (
+                    <p className="text-gray-500 text-sm">{t('livestock.no_milk_records', 'No milk records found.')}</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm whitespace-nowrap">
+                        <thead>
+                          <tr className="bg-blue-100 text-blue-900">
+                            <th className="p-2 rounded-tl-lg">{t('livestock.date', 'Date')}</th>
+                            <th className="p-2">{t('livestock.morning_milk', 'Morning (L)')}</th>
+                            <th className="p-2">{t('livestock.evening_milk', 'Evening (L)')}</th>
+                            <th className="p-2 rounded-tr-lg">{t('livestock.total_daily_milk', 'Total (L)')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            const grouped = {};
+                            animalHistory.milk.forEach(log => {
+                              const dateKey = new Date(log.date).toLocaleDateString();
+                              if (!grouped[dateKey]) grouped[dateKey] = { date: dateKey, Morning: 0, Evening: 0, Total: 0 };
+                              grouped[dateKey][log.session] = (grouped[dateKey][log.session] || 0) + log.yieldLiters;
+                              grouped[dateKey].Total += log.yieldLiters;
+                            });
+                            return Object.values(grouped).map((group, idx) => (
+                              <tr key={group.date} className={idx % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
+                                <td className="p-2 border-b font-medium text-gray-800">{group.date}</td>
+                                <td className="p-2 border-b text-gray-600">{group.Morning > 0 ? group.Morning.toFixed(1) : '-'}</td>
+                                <td className="p-2 border-b text-gray-600">{group.Evening > 0 ? group.Evening.toFixed(1) : '-'}</td>
+                                <td className="p-2 border-b font-bold text-blue-900">{group.Total.toFixed(1)}</td>
+                              </tr>
+                            ));
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
 

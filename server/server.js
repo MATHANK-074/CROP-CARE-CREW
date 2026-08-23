@@ -82,8 +82,12 @@ app.use('/api/livestock', require('./routes/livestock'));
 // Feed module
 app.use('/api/feed', require('./routes/feed'));
 app.use('/api/feed-optimization', require('./routes/feedOptimization'));
+app.use('/api/farm-settings', require('./routes/farmSettings'));
+app.use('/api/ml', require('./routes/ml'));
 // Reproductive AI module
 app.use('/api/reproductive', require('./routes/reproductive'));
+// ML-Ready Intelligence & Farm Data Center
+app.use('/api/intelligence', require('./routes/intelligence'));
 
 // Simple task generation endpoint
 app.post('/api/tasks/generate', async (req, res) => {
@@ -132,7 +136,7 @@ app.post('/api/weather-analysis', async (req, res) => {
     - Water conservation tips`;
 
     const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -197,7 +201,7 @@ if (existing) {
   });
 } else {
   // Fallback route when no frontend build is found
-  app.get('/', (req, res) => res.send('AgriTech Simple API Running'));
+  app.get('/', (req, res) => res.send('Krish Care 360 Simple API Running'));
 }
 
 // Socket.io connection handling

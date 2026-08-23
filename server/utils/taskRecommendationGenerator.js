@@ -684,7 +684,7 @@ async function generateAIRecommendations(crop, user) {
 
     // Get the generative model
     const model = genAI.getGenerativeModel({
-      model: "gemini-pro"
+      model: "gemini-3.5-flash"
     });
 
     // Calculate crop age and growth stage for better task recommendations

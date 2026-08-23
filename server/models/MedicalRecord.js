@@ -6,7 +6,12 @@ const medicalRecordSchema = new mongoose.Schema({
   type: { type: String, enum: ['Vaccine', 'Treatment', 'Vitamin', 'Other'], required: true },
   name: { type: String, required: true },
   date: { type: Date, default: Date.now },
+  cost: { type: Number, default: 0 },
+  nextDueDate: { type: Date }, // For recurring treatments or vaccines
+  administeredBy: { type: String },
   notes: { type: String }
 }, { timestamps: true });
+
+medicalRecordSchema.index({ user: 1, livestock: 1, date: -1 }); // Phase 4 index
 
 module.exports = mongoose.model('MedicalRecord', medicalRecordSchema);

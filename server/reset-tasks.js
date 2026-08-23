@@ -13,7 +13,7 @@ async function resetTodaysTasks() {
     console.log('🔄 Resetting today\'s tasks for testing...\n');
 
     // Connect to MongoDB
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/agritech';
+    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/Krish Care 360';
     await mongoose.connect(mongoURI);
     console.log('✅ Connected to MongoDB');
 

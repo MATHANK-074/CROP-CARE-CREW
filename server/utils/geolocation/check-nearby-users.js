@@ -6,7 +6,7 @@ dotenv.config();
 async function checkUsersNearLocation() {
   try {
     // Connect to MongoDB
-    const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/agritech';
+    const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/Krish Care 360';
     console.log('Connecting to MongoDB...');
     await mongoose.connect(mongoUri);
     console.log('Connected to MongoDB');

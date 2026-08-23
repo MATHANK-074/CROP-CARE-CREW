@@ -11,9 +11,23 @@ const livestockSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  species: {
+    type: String,
+    enum: ['Cattle', 'Poultry', 'Goat', 'Sheep'],
+    default: 'Cattle'
+  },
+  trackingType: {
+    type: String,
+    enum: ['Individual', 'Flock'],
+    default: 'Individual'
+  },
+  flockSize: {
+    type: Number,
+    default: 1
+  },
   category: {
     type: String,
-    enum: ['Cow', 'Buffalo', 'Calf', 'Bull', 'Goat', 'Sheep'],
+    enum: ['Cow', 'Buffalo', 'Calf', 'Bull', 'Goat', 'Sheep', 'Chicken (Layers)', 'Chicken (Broilers)', 'Ducks', 'Turkeys'],
     required: true
   },
   breed: {
@@ -25,12 +39,12 @@ const livestockSchema = new mongoose.Schema({
   },
   gender: {
     type: String,
-    enum: ['Male', 'Female'],
-    required: true
+    enum: ['Male', 'Female', 'Mixed'],
+    default: 'Female'
   },
   status: {
     type: String,
-    enum: ['Milking', 'Pregnant', 'Dry', 'Heifer', 'Growing', 'Sold', 'Deceased'],
+    enum: ['Milking', 'Pregnant', 'Dry', 'Heifer', 'Growing', 'Sold', 'Deceased', 'Laying', 'Brooding', 'Molting'],
     default: 'Growing'
   },
   weight: {
@@ -51,10 +65,15 @@ const livestockSchema = new mongoose.Schema({
   },
   notes: {
     type: String
+  },
+  profile_img: {
+    type: String,
+    default: ''
   }
 }, { timestamps: true });
 
 // Ensure a user cannot have duplicate tag IDs
 livestockSchema.index({ user: 1, tagId: 1 }, { unique: true });
+livestockSchema.index({ user: 1, status: 1 }); // Phase 4 index
 
 module.exports = mongoose.model('Livestock', livestockSchema);

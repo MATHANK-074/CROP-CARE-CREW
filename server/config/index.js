@@ -18,7 +18,7 @@ const config = {
 
   // Database configuration
   database: {
-    mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/agritech',
+    mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/Krish Care 360',
     mongoOptions: {
       useNewUrlParser: true,
       useUnifiedTopology: true
@@ -53,7 +53,7 @@ const config = {
   // External API configuration
   apis: {
     huggingFace: {
-      token: process.env.HUGGING_FACE_TOKEN,
+      token: process.env.HF_TOKEN,
       modelUrl: process.env.HUGGING_FACE_MODEL_URL || 'https://api-inference.huggingface.co/models/linkanjarad/mobilenet_v2_1.0_224-plant-disease-identification'
     },
     weather: {

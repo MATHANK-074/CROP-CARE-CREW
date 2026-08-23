@@ -20,7 +20,8 @@ import {
   FaCog,
   FaTasks,
   FaCalendarAlt,
-  FaPaw as FaCow
+  FaPaw as FaCow,
+  FaBrain
 } from 'react-icons/fa';
 
 const VerticalHeader = ({ collapsed: propCollapsed }) => {
@@ -186,6 +187,12 @@ const VerticalHeader = ({ collapsed: propCollapsed }) => {
             <Link to="/livestock" className={`flex items-center px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors ${location.pathname === '/livestock' ? 'bg-green-50 text-green-600 border-r-4 border-green-600 font-medium' : ''}`}>
               <FaCow className={`${collapsed ? 'text-xl' : 'text-lg mr-3'}`} />
               {!collapsed && <span>{t('sidebar.livestock', 'Livestock')}</span>}
+            </Link>
+          </li>
+          <li className="mb-2">
+            <Link to="/intelligence" className={`flex items-center px-4 py-3 text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors ${location.pathname === '/intelligence' ? 'bg-purple-50 text-purple-600 border-r-4 border-purple-600 font-medium' : ''}`}>
+              <FaBrain className={`${collapsed ? 'text-xl' : 'text-lg mr-3'}`} />
+              {!collapsed && <span>{t('sidebar.intelligence', 'Farm Intelligence')}</span>}
             </Link>
           </li>
         </ul>

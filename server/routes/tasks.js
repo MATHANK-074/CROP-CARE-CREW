@@ -463,7 +463,7 @@ router.post('/:id/complete', async (req, res) => {
         crop: task.crop._id,
         user: userId,
         title: `Completed: ${task.title}`,
-        description: `✅ Task completed via AgriTech system\n\nOriginal task: ${task.description}${notes ? `\n\nUser notes: ${notes}` : ''}\n\n📊 Completion Analysis:\n• Timing: ${timingStatus} (${Math.abs(timingDifference)} days ${timingDifference < 0 ? 'early' : timingDifference > 0 ? 'late' : 'on time'})\n• Priority: ${task.priority}\n• Category: ${task.category}\n• Duration in system: ${taskDuration} days`,
+        description: `✅ Task completed via Krish Care 360 system\n\nOriginal task: ${task.description}${notes ? `\n\nUser notes: ${notes}` : ''}\n\n📊 Completion Analysis:\n• Timing: ${timingStatus} (${Math.abs(timingDifference)} days ${timingDifference < 0 ? 'early' : timingDifference > 0 ? 'late' : 'on time'})\n• Priority: ${task.priority}\n• Category: ${task.category}\n• Duration in system: ${taskDuration} days`,
         activityType: activityType,
         date: completionDate,
         duration: taskDuration * 1440, // Convert to minutes for consistency

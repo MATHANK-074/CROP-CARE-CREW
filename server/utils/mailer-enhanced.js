@@ -31,7 +31,7 @@ async function sendViaSendGrid({ to, subject, text, html }) {
     },
     body: JSON.stringify({
       personalizations: [{ to: [{ email: to }] }],
-      from: { email: process.env.SMTP_USER || 'alerts@agritech.com' },
+      from: { email: process.env.SMTP_USER || 'alerts@Krish Care 360.com' },
       subject,
       content: [
         { type: 'text/plain', value: text },
@@ -55,7 +55,7 @@ async function sendViaMailgun({ to, subject, text, html }) {
   }
 
   const formData = new URLSearchParams();
-  formData.append('from', `AgriTech Alerts <alerts@${process.env.MAILGUN_DOMAIN}>`);
+  formData.append('from', `Krish Care 360 Alerts <alerts@${process.env.MAILGUN_DOMAIN}>`);
   formData.append('to', to);
   formData.append('subject', subject);
   formData.append('text', text);

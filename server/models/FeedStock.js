@@ -24,6 +24,21 @@ const feedStockSchema = new mongoose.Schema({
     enum: ['kg', 'tons', 'bags', 'liters'],
     default: 'kg'
   },
+  costPerUnit: {
+    type: Number,
+    default: 0
+  },
+  supplier: {
+    type: String,
+    default: ''
+  },
+  suitableAnimalCategories: [{
+    type: String
+  }],
+  isActive: {
+    type: Boolean,
+    default: true
+  },
   lowStockThreshold: {
     type: Number, // Warning trigger level
     default: 50

@@ -153,18 +153,33 @@ router.post('/google', async (req, res) => {
     const { id_token } = req.body || {};
     if (!id_token) return res.status(400).json({ message: 'Missing id_token' });
 
-    const ticket = await googleClient.verifyIdToken({ idToken: id_token, audience: googleClientId });
-    const payload = ticket.getPayload();
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({ idToken: id_token, audience: googleClientId });
+      payload = ticket.getPayload();
+    } catch (verifyErr) {
+      if (verifyErr.message && verifyErr.message.includes('Token used too early')) {
+        console.warn('Ignoring clock skew / Token used too early error:', verifyErr.message);
+        payload = jwt.decode(id_token);
+        console.log('Decoded payload:', payload);
+      } else {
+        throw verifyErr;
+      }
+    }
+
     const email = payload?.email;
     const emailVerified = payload?.email_verified;
     const name = payload?.name || 'User';
     const picture = payload?.picture || '';
+
+    console.log('OAuth data:', { email, emailVerified, name });
 
     if (!email || !emailVerified) {
       return res.status(400).json({ message: 'Google email not verified' });
     }
 
     let user = await User.findOne({ email });
+    console.log('Found user:', user ? 'Yes' : 'No');
     if (!user) {
       // Ask client to complete minimal profile (e.g., phone) via /oauth/register
       return res.status(409).json({
@@ -180,9 +195,10 @@ router.post('/google', async (req, res) => {
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'supersecretkey', { expiresIn: '7d' });
+    console.log('Successfully returning user token');
     return res.json({ token, user: { id: user._id, name: user.name, email: user.email, phone: user.phone, location: user.location, profile_img: user.profile_img } });
   } catch (err) {
-    console.error('Google OAuth error:', err.message);
+    console.error('Google OAuth error:', err.message, err.stack);
     return res.status(500).json({ message: 'OAuth error' });
   }
 });

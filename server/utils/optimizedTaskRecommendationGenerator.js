@@ -91,7 +91,7 @@ async function generateRecommendationsFromAPI(cropId, user) {
 
     // Get the generative model
     const model = genAI.getGenerativeModel({
-      model: "gemini-pro"
+      model: "gemini-3.5-flash"
     });
 
     // Create a structured prompt for better results

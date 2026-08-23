@@ -39,7 +39,16 @@ const breedingRecordSchema = new mongoose.Schema({
   },
   notes: {
     type: String
+  },
+  cost: {
+    type: Number,
+    default: 0
+  },
+  aiTechnician: {
+    type: String
   }
 }, { timestamps: true });
+
+breedingRecordSchema.index({ user: 1, livestock: 1, eventDate: -1 }); // Phase 4 index
 
 module.exports = mongoose.model('BreedingRecord', breedingRecordSchema);
