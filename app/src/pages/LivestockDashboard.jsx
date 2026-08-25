@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { 
   FaPaw as FaCow, FaSyringe, FaPlus, FaExclamationTriangle, 
   FaCheckCircle, FaSearch, FaHistory, FaBabyCarriage, FaStethoscope,
-  FaLeaf, FaChartLine, FaBuilding, FaChartBar, FaBell, FaBrain
+  FaLeaf, FaChartLine, FaBuilding, FaChartBar, FaBell, FaBrain, FaEdit
 } from 'react-icons/fa';
 import LivestockCalendar from '../components/livestock/LivestockCalendar';
 import FeedOptimizationDashboard from '../components/livestock/FeedOptimizationDashboard';
@@ -24,6 +24,7 @@ const LivestockDashboard = () => {
   const [livestockList, setLivestockList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showMedicalModal, setShowMedicalModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showMilkModal, setShowMilkModal] = useState(false);
@@ -36,6 +37,7 @@ const LivestockDashboard = () => {
     ageNumber: '', ageUnit: 'Years', buyingPrice: '', expectedDeliveryDate: '' 
   };
   const [newAnimal, setNewAnimal] = useState(initialAnimalState);
+  const [editAnimal, setEditAnimal] = useState(initialAnimalState);
   const [medicalForm, setMedicalForm] = useState({ type: 'Vaccine', name: '', date: '', notes: '' });
   const [milkForm, setMilkForm] = useState({ date: new Date().toISOString().split('T')[0], morningYield: '', eveningYield: '', notes: '' });
   const [milkLoading, setMilkLoading] = useState(false);
@@ -164,6 +166,40 @@ const LivestockDashboard = () => {
       } else {
         const data = await res.json();
         setError(data.message || 'Failed to add animal');
+      }
+    } catch (err) {
+      setError('Network error');
+    }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      
+      const animalToSubmit = { ...editAnimal };
+      if (editAnimal.ageNumber) {
+        const translatedUnit = editAnimal.ageUnit === 'Years' ? t('livestock.modal_age_years', 'Years') : t('livestock.modal_age_months', 'Months');
+        animalToSubmit.ageString = `${editAnimal.ageNumber} ${translatedUnit}`;
+      }
+
+      const res = await fetch(buildApiUrl(`/livestock/${editAnimal._id}`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(animalToSubmit)
+      });
+
+      if (res.ok) {
+        setShowEditModal(false);
+        setEditAnimal(initialAnimalState);
+        setError(null);
+        fetchData(); // Refresh data
+      } else {
+        const data = await res.json();
+        setError(data.message || 'Failed to update animal');
       }
     } catch (err) {
       setError('Network error');
@@ -507,6 +543,25 @@ const LivestockDashboard = () => {
                             </span>
                           </td>
                           <td className="p-4 flex flex-wrap gap-2">
+                            <button onClick={() => { 
+                              const animalToEdit = { ...animal };
+                              if(animal.ageString) {
+                                const parts = animal.ageString.split(' ');
+                                animalToEdit.ageNumber = parts[0] || '';
+                                animalToEdit.ageUnit = parts[1] === 'Months' ? 'Months' : 'Years';
+                              }
+                              // Format date properly for input[type="date"]
+                              if(animalToEdit.birthDate) {
+                                animalToEdit.birthDate = new Date(animalToEdit.birthDate).toISOString().split('T')[0];
+                              }
+                              if(animalToEdit.expectedDeliveryDate) {
+                                animalToEdit.expectedDeliveryDate = new Date(animalToEdit.expectedDeliveryDate).toISOString().split('T')[0];
+                              }
+                              setEditAnimal(animalToEdit); 
+                              setShowEditModal(true); 
+                            }} className="text-sm text-yellow-600 hover:text-yellow-800 flex items-center bg-yellow-50 px-2 py-1 rounded">
+                              <FaEdit className="mr-1"/> Edit
+                            </button>
                             {animal.status === 'Milking' && (
                               <button onClick={() => { setSelectedAnimal(animal); setShowMilkModal(true); }} className="text-sm text-blue-600 hover:text-blue-800 flex items-center bg-blue-50 px-2 py-1 rounded">
                                 <FaCow className="mr-1"/> {t('livestock.log_milk', 'Log Milk')}
@@ -653,14 +708,34 @@ const LivestockDashboard = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Source & Parents</label>
-                  <select value={newAnimal.source} onChange={e => setNewAnimal({...newAnimal, source: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50 mb-2">
-                    <option value="Farm-born">Farm-born</option>
+                  <select value={newAnimal.source} onChange={e => {
+                    const source = e.target.value;
+                    setNewAnimal({
+                      ...newAnimal, 
+                      source,
+                      ...(source === 'Purchased' ? { motherTagId: '', fatherTagId: '' } : {})
+                    });
+                  }} className="w-full p-2 border rounded-lg bg-gray-50 mb-2">
                     <option value="Purchased">Purchased</option>
                     <option value="Other">Other</option>
                   </select>
                   <div className="flex space-x-2">
-                    <input type="text" value={newAnimal.motherTagId} onChange={e => setNewAnimal({...newAnimal, motherTagId: e.target.value})} className="w-1/2 p-2 border rounded-lg bg-gray-50 text-sm" placeholder="Mother Tag" />
-                    <input type="text" value={newAnimal.fatherTagId} onChange={e => setNewAnimal({...newAnimal, fatherTagId: e.target.value})} className="w-1/2 p-2 border rounded-lg bg-gray-50 text-sm" placeholder="Father Tag" />
+                    <input 
+                      type="text" 
+                      value={newAnimal.motherTagId} 
+                      onChange={e => setNewAnimal({...newAnimal, motherTagId: e.target.value})} 
+                      disabled={newAnimal.source === 'Purchased'}
+                      className={`w-1/2 p-2 border rounded-lg text-sm transition-colors ${newAnimal.source === 'Purchased' ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-50'}`} 
+                      placeholder="Mother Tag" 
+                    />
+                    <input 
+                      type="text" 
+                      value={newAnimal.fatherTagId} 
+                      onChange={e => setNewAnimal({...newAnimal, fatherTagId: e.target.value})} 
+                      disabled={newAnimal.source === 'Purchased'}
+                      className={`w-1/2 p-2 border rounded-lg text-sm transition-colors ${newAnimal.source === 'Purchased' ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-50'}`} 
+                      placeholder={newAnimal.source === 'Farm-born (AI)' ? 'Semen ID / Bull ID' : 'Father Tag'} 
+                    />
                   </div>
                 </div>
                 <div>
@@ -709,6 +784,137 @@ const LivestockDashboard = () => {
               <div className="flex justify-end space-x-3 mt-8">
                 <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">{t('livestock.modal_cancel', 'Cancel')}</button>
                 <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-md transition-colors">{t('livestock.modal_save', 'Save Animal')}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Animal Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white p-8 rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800">Edit Animal Profile</h2>
+            {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>}
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('livestock.modal_tag_id', 'Tag ID / Name')}</label>
+                  <input required type="text" value={editAnimal.tagId} onChange={e => setEditAnimal({...editAnimal, tagId: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50" placeholder={t('livestock.modal_tag_ph', 'e.g. COW-001')} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                  <select value={editAnimal.gender} onChange={e => setEditAnimal({...editAnimal, gender: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50">
+                    <option value="Female">Female</option>
+                    <option value="Male">Male</option>
+                    <option value="Mixed">Mixed (Flock)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('livestock.modal_age', 'Age / DOB')}</label>
+                  <div className="flex space-x-2">
+                    <input type="date" value={editAnimal.birthDate || ''} onChange={e => setEditAnimal({...editAnimal, birthDate: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50 text-sm" title="Date of Birth" />
+                  </div>
+                  <div className="flex space-x-2 mt-2">
+                    <input type="number" min="0" value={editAnimal.ageNumber || ''} onChange={e => setEditAnimal({...editAnimal, ageNumber: e.target.value})} className="w-2/3 p-2 border rounded-lg bg-gray-50 text-sm" placeholder="Or age..." />
+                    <select value={editAnimal.ageUnit || 'Years'} onChange={e => setEditAnimal({...editAnimal, ageUnit: e.target.value})} className="w-1/3 p-2 border rounded-lg bg-gray-50 text-sm">
+                      <option value="Years">{t('livestock.modal_age_years', 'Yrs')}</option>
+                      <option value="Months">{t('livestock.modal_age_months', 'Mos')}</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
+                  <div className="flex space-x-2">
+                    <input type="number" value={editAnimal.birthWeight || ''} onChange={e => setEditAnimal({...editAnimal, birthWeight: e.target.value})} className="w-1/2 p-2 border rounded-lg bg-gray-50 text-sm" placeholder="Birth Wt" />
+                    <input type="number" value={editAnimal.currentWeight || ''} onChange={e => setEditAnimal({...editAnimal, currentWeight: e.target.value})} className="w-1/2 p-2 border rounded-lg bg-gray-50 text-sm" placeholder="Current Wt" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Source & Parents</label>
+                  <select value={editAnimal.source || 'Purchased'} onChange={e => {
+                    const source = e.target.value;
+                    setEditAnimal({
+                      ...editAnimal, 
+                      source,
+                      ...(source === 'Purchased' ? { motherTagId: '', fatherTagId: '' } : {})
+                    });
+                  }} className="w-full p-2 border rounded-lg bg-gray-50 mb-2">
+                    <option value="Purchased">Purchased</option>
+                    <option value="Farm-born">Farm-born</option>
+                    <option value="Farm-born (AI)">Farm-born (AI)</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  <div className="flex space-x-2">
+                    <input 
+                      type="text" 
+                      value={editAnimal.motherTagId || ''} 
+                      onChange={e => setEditAnimal({...editAnimal, motherTagId: e.target.value})} 
+                      disabled={editAnimal.source === 'Purchased'}
+                      className={`w-1/2 p-2 border rounded-lg text-sm transition-colors ${editAnimal.source === 'Purchased' ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-50'}`} 
+                      placeholder="Mother Tag" 
+                    />
+                    <input 
+                      type="text" 
+                      value={editAnimal.fatherTagId || ''} 
+                      onChange={e => setEditAnimal({...editAnimal, fatherTagId: e.target.value})} 
+                      disabled={editAnimal.source === 'Purchased'}
+                      className={`w-1/2 p-2 border rounded-lg text-sm transition-colors ${editAnimal.source === 'Purchased' ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-50'}`} 
+                      placeholder={editAnimal.source === 'Farm-born (AI)' ? 'Semen ID / Bull ID' : 'Father Tag'} 
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('livestock.modal_category', 'Category')}</label>
+                  <select value={editAnimal.category || 'Cow'} onChange={e => setEditAnimal({...editAnimal, category: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50 mb-2">
+                    <option value="Cow">{t('livestock.modal_cat_cow', 'Cow')}</option>
+                    <option value="Buffalo">{t('livestock.modal_cat_buffalo', 'Buffalo')}</option>
+                    <option value="Calf">{t('livestock.modal_cat_calf', 'Calf')}</option>
+                    <option value="Bull">{t('livestock.modal_cat_bull', 'Bull')}</option>
+                  </select>
+                  <input type="text" value={editAnimal.breed || ''} onChange={e => setEditAnimal({...editAnimal, breed: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50" placeholder={t('livestock.modal_breed_ph', 'Breed (e.g. Jersey)')} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('livestock.modal_price', 'Buying Price (₹)')}</label>
+                  <input type="number" value={editAnimal.buyingPrice || ''} onChange={e => setEditAnimal({...editAnimal, buyingPrice: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50" placeholder={t('livestock.modal_price_ph', 'e.g. 45000')} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('livestock.modal_status', 'Current Status')}</label>
+                  <select value={editAnimal.status || 'Growing'} onChange={e => setEditAnimal({...editAnimal, status: e.target.value})} className="w-full p-2 border rounded-lg bg-gray-50">
+                    <option value="Growing">{t('livestock.modal_stat_growing', 'Growing')}</option>
+                    <option value="Milking">{t('livestock.modal_stat_milking', 'Milking')}</option>
+                    <option value="Pregnant">{t('livestock.modal_stat_pregnant', 'Pregnant')}</option>
+                    <option value="Dry">{t('livestock.modal_stat_dry', 'Dry')}</option>
+                  </select>
+                </div>
+              </div>
+
+              {editAnimal.status === 'Pregnant' && (
+                <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
+                  <label className="block text-sm font-medium text-purple-800 mb-1">{t('livestock.modal_expected_delivery', 'Expected Delivery Date')}</label>
+                  <p className="text-xs text-purple-600 mb-2">{t('livestock.modal_expected_delivery_desc', 'Since this cow is already pregnant, when is it due?')}</p>
+                  <input 
+                    required 
+                    type="date" 
+                    value={editAnimal.expectedDeliveryDate || ''} 
+                    onChange={e => setEditAnimal({...editAnimal, expectedDeliveryDate: e.target.value})} 
+                    className="w-full p-2 border rounded-lg border-purple-200" 
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3 mt-8">
+                <button type="button" onClick={() => { setShowEditModal(false); setError(null); }} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">{t('livestock.modal_cancel', 'Cancel')}</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md transition-colors">Update Animal</button>
               </div>
             </form>
           </div>

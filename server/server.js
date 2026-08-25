@@ -88,7 +88,8 @@ app.use('/api/ml', require('./routes/ml'));
 app.use('/api/reproductive', require('./routes/reproductive'));
 // ML-Ready Intelligence & Farm Data Center
 app.use('/api/intelligence', require('./routes/intelligence'));
-
+// Hardware Telemetry
+app.use('/api/hardware', require('./routes/hardware'));
 // Simple task generation endpoint
 app.post('/api/tasks/generate', async (req, res) => {
   try {

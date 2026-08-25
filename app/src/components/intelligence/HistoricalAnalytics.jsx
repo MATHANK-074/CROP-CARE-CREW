@@ -97,7 +97,7 @@ export default function HistoricalAnalytics() {
                   />
                   <Legend />
                   <Area type="monotone" name={t('intelligence.analytics.total_yield', 'Total Yield (L)')} dataKey="totalYield" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorYield)" />
-                </AreaChart>>
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
@@ -119,7 +119,7 @@ export default function HistoricalAnalytics() {
                   <Legend />
                   <Bar yAxisId="left" name={t('intelligence.analytics.total_cost', 'Total Cost (₹)')} dataKey="totalCost" fill="#f97316" radius={[4, 4, 0, 0]} />
                   <Bar yAxisId="right" name={t('intelligence.analytics.total_feed', 'Total Feed (kg)')} dataKey="totalFeedKg" fill="#10b981" radius={[4, 4, 0, 0]} />
-                </BarChart>>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </div>

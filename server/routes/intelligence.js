@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const mongoose = require('mongoose');
+const exceljs = require('exceljs');
 
 const Livestock = require('../models/Livestock');
 const MilkLog = require('../models/MilkLog');
@@ -124,8 +125,8 @@ router.get('/quality', auth, async (req, res) => {
     // Check Animals
     const animals = await Livestock.find({ user: userId });
     for (const animal of animals) {
-      if (!animal.birthDate) {
-        issues.push({ severity: 'HIGH', type: 'MISSING_DATA', animalId: animal._id, explanation: `Animal ${animal.tagId} is missing birth date.`, action: 'Update animal profile with age/birth date.' });
+      if (!animal.birthDate && !animal.ageString) {
+        issues.push({ severity: 'HIGH', type: 'MISSING_DATA', animalId: animal._id, explanation: `Animal ${animal.tagId} is missing age/birth date.`, action: 'Update animal profile with age/birth date.' });
       }
       if (animal.category === 'Cow' && animal.status === 'Milking') {
         // Check for recent milk records (last 7 days)
@@ -337,6 +338,80 @@ router.get('/export', auth, async (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=\"farm_export.csv\"');
     res.status(200).send(csvContent);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   GET api/intelligence/export/excel
+// @desc    Export aggregated data as Excel
+// @access  Private
+router.get('/export/excel', auth, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const milkLogs = await MilkLog.find({ user: userId }).populate('livestock', 'tagId category').sort({ date: -1 }).limit(500);
+    const feedRecords = await AnimalFeedRecord.find({ user: userId }).populate('livestock', 'tagId category').sort({ date: -1 }).limit(500);
+
+    const workbook = new exceljs.Workbook();
+    workbook.creator = 'AgriTech Intelligence';
+    workbook.created = new Date();
+
+    // --- Milk Production Sheet ---
+    const milkSheet = workbook.addWorksheet('Milk Production');
+    milkSheet.columns = [
+      { header: 'Date', key: 'date', width: 15 },
+      { header: 'Animal Tag', key: 'tag', width: 20 },
+      { header: 'Category', key: 'category', width: 15 },
+      { header: 'Yield (L)', key: 'yield', width: 15 },
+      { header: 'Session', key: 'session', width: 15 }
+    ];
+
+    // Style headers
+    milkSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    milkSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4CAF50' } };
+    milkSheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    milkLogs.forEach(log => {
+      milkSheet.addRow({
+        date: new Date(log.date).toISOString().split('T')[0],
+        tag: log.livestock ? log.livestock.tagId : 'Unknown',
+        category: log.livestock ? log.livestock.category : 'Unknown',
+        yield: log.yieldLiters,
+        session: log.session || 'N/A'
+      });
+    });
+
+    // --- Feed Records Sheet ---
+    const feedSheet = workbook.addWorksheet('Feed Records');
+    feedSheet.columns = [
+      { header: 'Date', key: 'date', width: 15 },
+      { header: 'Animal Tag', key: 'tag', width: 20 },
+      { header: 'Feed Type', key: 'type', width: 20 },
+      { header: 'Quantity (kg)', key: 'quantity', width: 15 },
+      { header: 'Cost (₹)', key: 'cost', width: 15 }
+    ];
+
+    feedSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    feedSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2196F3' } };
+    feedSheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    feedRecords.forEach(record => {
+      feedSheet.addRow({
+        date: new Date(record.date).toISOString().split('T')[0],
+        tag: record.livestock ? record.livestock.tagId : (record.groupId || 'Farm-wide'),
+        type: record.feedType,
+        quantity: record.quantityKg,
+        cost: record.cost
+      });
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="farm_report.xlsx"');
+    
+    await workbook.xlsx.write(res);
+    res.end();
 
   } catch (err) {
     console.error(err);

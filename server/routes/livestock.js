@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const Livestock = require('../models/Livestock');
@@ -147,6 +148,9 @@ router.get('/dashboard/stats', auth, async (req, res) => {
 
 // POST /api/livestock - Add a new animal
 router.post('/', auth, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
   try {
     const { 
       tagId, species, trackingType, flockSize, category, breed, birthDate, ageString, buyingPrice, 
@@ -157,16 +161,43 @@ router.post('/', auth, async (req, res) => {
     // Auto-calculate life stage
     const lifeStage = calculateLifeStage(birthDate, gender);
 
+    let mother = null;
+    if (motherTagId && (source === 'Farm-born' || source === 'Farm-born (AI)')) {
+      mother = await Livestock.findOne({ tagId: motherTagId, user: req.user.id }).session(session);
+      if (!mother) {
+        throw new Error('MOTHER_NOT_FOUND');
+      }
+    }
+
     const newAnimal = new Livestock({
       user: req.user.id,
       tagId, species, trackingType, flockSize, category, breed, birthDate, ageString, buyingPrice, 
       gender, status, weight, birthWeight, currentWeight, source, motherTagId, fatherTagId, lifeStage, notes
     });
 
-    const savedAnimal = await newAnimal.save();
+    const savedAnimal = await newAnimal.save({ session });
+
+    if (mother) {
+      mother.status = 'Milking';
+      await mother.save({ session });
+      
+      const dDate = new Date(birthDate || new Date());
+      const nextHeat = new Date(dDate);
+      nextHeat.setDate(dDate.getDate() + 45); // Predict heat in 45 days
+
+      await BreedingRecord.findOneAndUpdate(
+        { livestock: mother._id, user: req.user.id, outcome: { $in: ['Pending', 'Confirmed Pregnant'] } },
+        { 
+          outcome: 'Delivered Calf',
+          actualDeliveryDate: dDate,
+          nextHeatPredictionDate: nextHeat
+        },
+        { sort: { eventDate: -1 }, session }
+      );
+    }
 
     // If bought pregnant, instantly register a BreedingRecord so alerts track it!
-    if (status === 'Pregnant' && expectedDeliveryDate) {
+    if (!mother && status === 'Pregnant' && expectedDeliveryDate) {
       const newRecord = new BreedingRecord({
         user: req.user.id,
         livestock: savedAnimal._id,
@@ -176,21 +207,70 @@ router.post('/', auth, async (req, res) => {
         outcome: 'Confirmed Pregnant',
         notes: 'Pre-pregnant market purchase'
       });
-      await newRecord.save();
+      await newRecord.save({ session });
     }
 
+    await session.commitTransaction();
     res.status(201).json(savedAnimal);
   } catch (error) {
+    await session.abortTransaction();
+    if (error.message === 'MOTHER_NOT_FOUND') {
+      return res.status(400).json({ message: 'Mother animal not found in your farm records.' });
+    }
     if (error.code === 11000) {
       return res.status(400).json({ message: 'An animal with this Tag ID already exists.' });
     }
     console.error('Error adding livestock:', error);
     res.status(500).json({ message: 'Server error while adding livestock' });
+  } finally {
+    session.endSession();
+  }
+});
+
+// PUT /api/livestock/:id - Update an animal's profile
+router.put('/:id', auth, async (req, res) => {
+  try {
+    const { 
+      tagId, species, trackingType, flockSize, category, breed, birthDate, ageString, buyingPrice, 
+      gender, status, weight, birthWeight, currentWeight, source, motherTagId, fatherTagId,
+      expectedDeliveryDate, notes 
+    } = req.body;
+    
+    // Auto-calculate life stage
+    const lifeStage = calculateLifeStage(birthDate, gender);
+
+    const animal = await Livestock.findOne({ _id: req.params.id, user: req.user.id });
+    if (!animal) {
+      return res.status(404).json({ message: 'Animal not found' });
+    }
+
+    // Check for unique tagId if it was changed
+    if (tagId !== animal.tagId) {
+      const existing = await Livestock.findOne({ tagId, user: req.user.id });
+      if (existing) {
+        return res.status(400).json({ message: 'An animal with this Tag ID already exists.' });
+      }
+    }
+
+    // Update fields
+    Object.assign(animal, {
+      tagId, species, trackingType, flockSize, category, breed, birthDate, ageString, buyingPrice, 
+      gender, status, weight, birthWeight, currentWeight, source, motherTagId, fatherTagId, lifeStage, notes
+    });
+
+    const savedAnimal = await animal.save();
+    res.json(savedAnimal);
+  } catch (error) {
+    console.error('Error updating livestock:', error);
+    res.status(500).json({ message: 'Server error while updating livestock' });
   }
 });
 
 // POST /api/livestock/birth - Register a new birth (calf)
 router.post('/birth', auth, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { 
       tagId, breed, birthDate, birthWeight, gender, motherTagId, fatherTagId, notes,
@@ -206,6 +286,14 @@ router.post('/birth', auth, async (req, res) => {
     // Auto-calculate life stage (should be 'Calf')
     const lifeStage = calculateLifeStage(birthDate, gender);
 
+    let mother = null;
+    if (motherTagId) {
+      mother = await Livestock.findOne({ tagId: motherTagId, user: req.user.id }).session(session);
+      if (!mother) {
+        throw new Error('MOTHER_NOT_FOUND');
+      }
+    }
+
     const newCalf = new Livestock({
       user: req.user.id,
       tagId, species, trackingType, category, breed, birthDate, gender, 
@@ -214,7 +302,26 @@ router.post('/birth', auth, async (req, res) => {
       status: 'Growing'
     });
 
-    const savedCalf = await newCalf.save();
+    const savedCalf = await newCalf.save({ session });
+
+    if (mother) {
+      mother.status = 'Milking';
+      await mother.save({ session });
+      
+      const dDate = new Date(birthDate || new Date());
+      const nextHeat = new Date(dDate);
+      nextHeat.setDate(dDate.getDate() + 45); // Predict heat in 45 days
+
+      await BreedingRecord.findOneAndUpdate(
+        { livestock: mother._id, user: req.user.id, outcome: { $in: ['Pending', 'Confirmed Pregnant'] } },
+        { 
+          outcome: 'Delivered Calf',
+          actualDeliveryDate: dDate,
+          nextHeatPredictionDate: nextHeat
+        },
+        { sort: { eventDate: -1 }, session }
+      );
+    }
 
     // Generate initial health record
     if (initialHealthStatus) {
@@ -228,7 +335,7 @@ router.post('/birth', auth, async (req, res) => {
         notes: `Initial Status: ${initialHealthStatus}`,
         date: new Date(birthDate)
       });
-      await newMedical.save();
+      await newMedical.save({ session });
     }
 
     // Schedule 1st deworming/vaccination (e.g., in 7 days)
@@ -243,15 +350,22 @@ router.post('/birth', auth, async (req, res) => {
       status: 'UPCOMING',
       nextDueDate: nextWeek
     });
-    await scheduledVax.save();
+    await scheduledVax.save({ session });
 
+    await session.commitTransaction();
     res.status(201).json(savedCalf);
   } catch (error) {
+    await session.abortTransaction();
+    if (error.message === 'MOTHER_NOT_FOUND') {
+      return res.status(400).json({ message: 'Mother animal not found in your farm records.' });
+    }
     if (error.code === 11000) {
       return res.status(400).json({ message: 'An animal with this Tag ID already exists.' });
     }
     console.error('Error registering birth:', error);
     res.status(500).json({ message: 'Server error while registering birth' });
+  } finally {
+    session.endSession();
   }
 });
 
@@ -349,60 +463,72 @@ router.get('/milk/analytics', auth, async (req, res) => {
     const logs = await MilkLog.find({ user: userId }).populate('livestock', 'tagId status category breed').sort({ date: 1 });
     
     const today = new Date();
-    today.setHours(0,0,0,0);
+    today.setUTCHours(0,0,0,0);
     const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    tomorrow.setUTCDate(today.getUTCDate() + 1);
 
     const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(today.getDate() - 6);
+    sevenDaysAgo.setUTCDate(today.getUTCDate() - 6);
 
-    // 1. Calculate Today's Yield
-    let todayTotal = 0;
-    let todayMorning = 0;
-    let todayEvening = 0;
-    
-    // 2. Trend Data (Last 7 Days)
+    // Get all potential milking cows early for fill-forward logic
+    const activeCows = await Livestock.find({ user: userId, status: { $in: ['Milking', 'Pregnant'] } });
+
+    // 1 & 2. Trend Data (Last 7 Days) & Today's Yield using Fill-Forward
     const trendMap = {};
     for (let i = 0; i < 7; i++) {
       const d = new Date(sevenDaysAgo);
-      d.setDate(sevenDaysAgo.getDate() + i);
+      d.setUTCDate(sevenDaysAgo.getUTCDate() + i);
       const dateStr = d.toISOString().split('T')[0];
-      trendMap[dateStr] = { date: dateStr, yield: 0, morning: 0, evening: 0 };
+      
+      let dayMorning = 0;
+      let dayEvening = 0;
+      let dayTotal = 0;
+
+      activeCows.forEach(cow => {
+         const cowLogs = logs.filter(l => l.livestock && l.livestock._id.toString() === cow._id.toString() && l.date.toISOString().split('T')[0] <= dateStr);
+         if (cowLogs.length > 0) {
+            const latestDateStr = cowLogs[cowLogs.length - 1].date.toISOString().split('T')[0];
+            const latestDayLogs = cowLogs.filter(l => l.date.toISOString().split('T')[0] === latestDateStr);
+            latestDayLogs.forEach(l => {
+               if (l.session === 'Morning') dayMorning += (l.yieldLiters || 0);
+               if (l.session === 'Evening') dayEvening += (l.yieldLiters || 0);
+               dayTotal += (l.yieldLiters || 0);
+            });
+         }
+      });
+      
+      trendMap[dateStr] = { date: dateStr, yield: dayTotal, morning: dayMorning, evening: dayEvening };
     }
 
-    // 3. Leaderboard
+    const todayDateStr = today.toISOString().split('T')[0];
+    const todayData = trendMap[todayDateStr] || { yield: 0, morning: 0, evening: 0 };
+    
+    let todayTotal = todayData.yield;
+    let todayMorning = todayData.morning;
+    let todayEvening = todayData.evening;
+
+    // 3. Leaderboard (All-Time and Today actual vs filled)
+    // For leaderboard, we still use the actual logs for All-Time, but we can use the filled value for 'Today' to match the dashboard.
     const cowYields = {};
+    activeCows.forEach(cow => {
+       const tag = cow.tagId;
+       cowYields[tag] = { tagId: tag, totalYield: 0, todayYield: 0 };
+       
+       // Calculate All-Time Total from actual logs
+       const cowLogs = logs.filter(l => l.livestock && l.livestock._id.toString() === cow._id.toString());
+       cowLogs.forEach(l => {
+         cowYields[tag].totalYield += (l.yieldLiters || 0);
+       });
 
-    logs.forEach(log => {
-      const logDate = new Date(log.date);
-      const logDateOnly = logDate.toISOString().split('T')[0];
-      const yieldLiters = log.yieldLiters || 0;
-
-      // Trend accumulation
-      if (trendMap[logDateOnly]) {
-        trendMap[logDateOnly].yield += yieldLiters;
-        if (log.session === 'Morning') trendMap[logDateOnly].morning += yieldLiters;
-        if (log.session === 'Evening') trendMap[logDateOnly].evening += yieldLiters;
-      }
-
-      // Today's metrics
-      if (logDate >= today && logDate < tomorrow) {
-        todayTotal += yieldLiters;
-        if (log.session === 'Morning') todayMorning += yieldLiters;
-        if (log.session === 'Evening') todayEvening += yieldLiters;
-      }
-
-      // Leaderboard accumulation (let's do all-time for simplicity, or 30 days)
-      if (log.livestock) {
-        const tag = log.livestock.tagId;
-        if (!cowYields[tag]) {
-          cowYields[tag] = { tagId: tag, totalYield: 0, todayYield: 0 };
-        }
-        cowYields[tag].totalYield += yieldLiters;
-        if (logDate >= today && logDate < tomorrow) {
-          cowYields[tag].todayYield += yieldLiters;
-        }
-      }
+       // Calculate Today's Yield (Filled Forward)
+       const pastLogs = cowLogs.filter(l => l.date.toISOString().split('T')[0] <= todayDateStr);
+       if (pastLogs.length > 0) {
+         const latestDateStr = pastLogs[pastLogs.length - 1].date.toISOString().split('T')[0];
+         const latestDayLogs = pastLogs.filter(l => l.date.toISOString().split('T')[0] === latestDateStr);
+         latestDayLogs.forEach(l => {
+            cowYields[tag].todayYield += (l.yieldLiters || 0);
+         });
+       }
     });
 
     const trend = Object.values(trendMap);
@@ -416,9 +542,6 @@ router.get('/milk/analytics', auth, async (req, res) => {
     let forecast30Days = 0;
     const dryingOffSoon = [];
     
-    // Get all potential milking cows
-    const activeCows = await Livestock.find({ user: userId, status: { $in: ['Milking', 'Pregnant'] } });
-    
     // Get breeding records for pregnant cows to find expected delivery dates
     const breedingRecords = await BreedingRecord.find({ user: userId, outcome: 'Confirmed Pregnant' }).sort({ eventDate: -1 });
     
@@ -431,7 +554,8 @@ router.get('/milk/analytics', auth, async (req, res) => {
       if (cowLogs.length === 0) return; // Cannot forecast without baseline
 
       const totalLiters = cowLogs.reduce((sum, log) => sum + (log.yieldLiters || 0), 0);
-      let dailyBaseYield = totalLiters / 7;
+      const uniqueDays = new Set(cowLogs.map(log => log.date.toISOString().split('T')[0])).size;
+      let dailyBaseYield = totalLiters / (uniqueDays || 1);
 
       // Find if she is pregnant and has an EDD
       let dryDate = null;

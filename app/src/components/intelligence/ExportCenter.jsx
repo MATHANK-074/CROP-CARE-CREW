@@ -13,8 +13,10 @@ export default function ExportCenter() {
     const token = localStorage.getItem('token');
     if (!token) return;
 
+    const endpoint = format === 'excel' ? '/intelligence/export/excel' : '/intelligence/export';
+    
     // Use a direct download link approach with fetch to handle auth header
-    fetch(buildApiUrl('/intelligence/export'), {
+    fetch(buildApiUrl(endpoint), {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(response => {
@@ -67,8 +69,8 @@ export default function ExportCenter() {
           </button>
         </div>
 
-        {/* Excel Export (Visual Placeholder) */}
-        <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow flex flex-col items-start relative overflow-hidden group opacity-70">
+        {/* Excel Export */}
+        <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow flex flex-col items-start relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity transform translate-x-4 -translate-y-4">
             <FaFileExcel className="text-8xl text-green-600" />
           </div>
@@ -81,10 +83,10 @@ export default function ExportCenter() {
             Export a highly formatted, multi-tab Excel spreadsheet containing executive summaries, KPI charts, and color-coded data quality indicators.
           </p>
           <button 
-            disabled
-            className="w-full bg-gray-100 text-gray-400 cursor-not-allowed font-bold py-3 rounded-lg flex items-center justify-center"
+            onClick={() => handleExport('excel')}
+            className="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center shadow-md"
           >
-            Coming Soon
+            <FaDownload className="mr-2" /> Download Excel
           </button>
         </div>
       </div>

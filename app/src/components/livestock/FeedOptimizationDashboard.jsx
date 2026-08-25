@@ -19,7 +19,11 @@ const FeedOptimizationDashboard = () => {
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [selectedCowProfile, setSelectedCowProfile] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
+  
+  // Execution State
+  const [isExecutionModalOpen, setIsExecutionModalOpen] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [executionMessage, setExecutionMessage] = useState({ type: '', text: '' });
   useEffect(() => {
     fetchDashboardData();
   }, []);
@@ -41,13 +45,46 @@ const FeedOptimizationDashboard = () => {
     }
   };
 
+  const executeFeedPlan = async () => {
+    try {
+      setIsExecuting(true);
+      setExecutionMessage({ type: '', text: '' });
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl('/feed-optimization/execute-daily-plan'), {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+      const result = await res.json();
+      
+      if (res.ok) {
+        setExecutionMessage({ type: 'success', text: result.msg || 'Executed successfully!' });
+        setTimeout(() => {
+          setIsExecutionModalOpen(false);
+          fetchDashboardData();
+        }, 2000);
+      } else {
+        if (result.shortages && result.shortages.length > 0) {
+          const shortageText = result.shortages.map(s => `${s.feedType}: Required ${s.required} ${s.unit}, Available ${s.available} ${s.unit}`).join(' | ');
+          setExecutionMessage({ type: 'error', text: `Insufficient feed: ${shortageText}` });
+        } else {
+          setExecutionMessage({ type: 'error', text: result.msg || 'Unable to execute feed plan.' });
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      setExecutionMessage({ type: 'error', text: 'Server error. Please try again later.' });
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div></div>;
   }
 
   if (!data) return <div>{t('feed_optimization.failed_to_load', 'Failed to load optimization data.')}</div>;
 
-  const { kpi, todaysRequirement, inventoryPredictions, cowProfiles, farmForecast, efficiencyTrend, milkPriceStatus, milkSellingPricePerLitre } = data;
+  const { kpi, todaysRequirement, inventoryPredictions, cowProfiles, farmForecast, efficiencyTrend, milkPriceStatus, milkSellingPricePerLitre, planExecutedToday } = data;
 
   const filteredCows = cowProfiles.filter(c => {
     const matchSearch = c.cow.tagId.toLowerCase().includes(searchCow.toLowerCase());
@@ -148,7 +185,21 @@ const FeedOptimizationDashboard = () => {
                  </h3>
                  <p className="text-sm text-gray-500 mt-1">{t('Calculated dynamically based on active herd profiles.', 'Calculated dynamically based on active herd profiles.')}</p>
               </div>
-              <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-1 rounded font-bold">PREDICTED</span>
+              <div className="flex items-center space-x-3">
+                 <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-1 rounded font-bold">PREDICTED</span>
+                 {planExecutedToday ? (
+                   <span className="text-sm font-bold text-green-700 bg-green-100 px-3 py-2 rounded flex items-center">
+                      ✓ {t("Today's Plan Executed", "Today's Plan Executed")}
+                   </span>
+                 ) : (
+                   <button 
+                     onClick={() => setIsExecutionModalOpen(true)}
+                     className="px-4 py-2 bg-indigo-600 text-white rounded text-sm font-bold shadow hover:bg-indigo-700 transition"
+                   >
+                     {t("Execute Today's Feed Plan", "Execute Today's Feed Plan")}
+                   </button>
+                 )}
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -398,6 +449,100 @@ const FeedOptimizationDashboard = () => {
          onClose={() => setIsSettingsOpen(false)} 
          onSaved={fetchDashboardData} 
       />
+
+      {/* Execution Confirmation Modal */}
+      {isExecutionModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden">
+            <div className="p-5 border-b flex justify-between items-center bg-gray-50">
+              <h3 className="text-xl font-bold text-gray-800 flex items-center">
+                <FaCow className="mr-2 text-indigo-600" />
+                {t('Execute Today\'s Feed Plan', 'Execute Today\'s Feed Plan')}
+              </h3>
+              <button onClick={() => !isExecuting && setIsExecutionModalOpen(false)} className="text-gray-500 hover:text-red-500">
+                ✕
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="mb-4">
+                <p className="text-gray-700">{t('Are you sure you want to execute today\'s feed plan?', 'Are you sure you want to execute today\'s feed plan?')}</p>
+                <div className="mt-2 text-sm text-gray-600">
+                  <p><strong>{t('Animals', 'Animals')}:</strong> {cowProfiles.length}</p>
+                  <p><strong>{t('Total Estimated Cost', 'Total Estimated Cost')}:</strong> ₹{(kpi.totalDailyCost || 0).toLocaleString('en-IN')}</p>
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 rounded-lg p-4 border mb-4 max-h-64 overflow-y-auto">
+                <h4 className="font-bold text-gray-800 mb-2">{t('Total Feed Deduction Summary', 'Total Feed Deduction Summary')}</h4>
+                <table className="w-full text-sm text-left">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="pb-2">{t('Feed Type', 'Feed Type')}</th>
+                      <th className="pb-2 text-right">{t('Required', 'Required')}</th>
+                      <th className="pb-2 text-right">{t('Available', 'Available')}</th>
+                      <th className="pb-2 text-center">{t('Status', 'Status')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.keys(todaysRequirement).map(feedType => {
+                      const required = todaysRequirement[feedType].total || 0;
+                      const inv = inventoryPredictions.find(i => i.feedStock.feedType === feedType);
+                      const available = inv ? inv.feedStock.quantity : 0;
+                      const unit = inv ? inv.feedStock.unit : 'kg';
+                      const isShortage = required > available;
+                      
+                      return (
+                        <tr key={feedType} className="border-b last:border-0">
+                          <td className="py-2 font-medium">{t(feedType, feedType)}</td>
+                          <td className="py-2 text-right font-bold text-indigo-600">{required.toFixed(1)} {unit}</td>
+                          <td className="py-2 text-right text-gray-600">{available.toFixed(1)} {unit}</td>
+                          <td className="py-2 text-center">
+                            {isShortage ? (
+                              <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">{t('SHORTAGE', 'SHORTAGE')}</span>
+                            ) : (
+                              <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">{t('AVAILABLE', 'AVAILABLE')}</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mb-2 text-sm text-gray-600 italic">
+                {t('This action will deduct the above quantities from your inventory and record the consumption.', 'This action will deduct the above quantities from your inventory and record the consumption.')}
+              </div>
+              
+              {executionMessage.text && (
+                <div className={`p-3 rounded mb-4 text-sm font-bold ${executionMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  {executionMessage.type === 'success' ? '✓ ' : '⚠ '}{executionMessage.text}
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t bg-gray-50 flex justify-end space-x-3">
+              <button 
+                onClick={() => setIsExecutionModalOpen(false)} 
+                disabled={isExecuting}
+                className="px-4 py-2 border rounded text-gray-600 font-bold hover:bg-gray-100 disabled:opacity-50"
+              >
+                {t('Cancel', 'Cancel')}
+              </button>
+              <button 
+                onClick={executeFeedPlan}
+                disabled={isExecuting}
+                className="px-6 py-2 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700 disabled:opacity-75 flex items-center shadow"
+              >
+                {isExecuting ? (
+                  <><div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div> {t('Executing...', 'Executing...')}</>
+                ) : (
+                  t('Confirm & Execute', 'Confirm & Execute')
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </div>
   );

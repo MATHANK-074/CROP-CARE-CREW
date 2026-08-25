@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { FaCheckDouble, FaExclamationCircle, FaShieldAlt, FaInfoCircle, FaArrowRight } from 'react-icons/fa';
 
 const buildApiUrl = (path) => {
@@ -8,6 +9,7 @@ const buildApiUrl = (path) => {
 
 export default function DataQualityCenter() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [quality, setQuality] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -91,14 +93,17 @@ export default function DataQualityCenter() {
                     <p className="text-gray-800 font-medium text-lg">{issue.explanation}</p>
                   </div>
                   
-                  <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg md:w-1/3 flex flex-col justify-center">
+                  <button 
+                    onClick={() => navigate('/livestock')}
+                    className="bg-blue-50 border border-blue-100 p-4 rounded-lg md:w-1/3 flex flex-col justify-center hover:bg-blue-100 transition-colors text-left w-full cursor-pointer"
+                  >
                     <p className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-1 flex items-center">
                       <FaInfoCircle className="mr-1" /> {t('intelligence.quality.recommended_action', 'Recommended Action')}
                     </p>
-                    <p className="text-blue-900 font-medium flex items-center">
-                      {issue.action} <FaArrowRight className="ml-2 opacity-50" />
+                    <p className="text-blue-900 font-medium flex items-center justify-between w-full">
+                      <span>{issue.action}</span> <FaArrowRight className="ml-2 text-blue-500" />
                     </p>
-                  </div>
+                  </button>
                 </div>
               </div>
             ))}

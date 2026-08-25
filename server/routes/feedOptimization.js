@@ -207,10 +207,8 @@ const calculateFeedPlan = (cowAnalysis, configs, feedStocks, overrides, cow) => 
     let source = 'CONFIGURED_BASELINE';
 
     if (config.milkMultiplier > 0 && cowAnalysis.isLactating) {
-      if (cowAnalysis.milkYield !== null) {
-        suggestedQty += (cowAnalysis.milkYield * config.milkMultiplier);
-        source = 'MILK_ADJUSTED';
-      }
+      suggestedQty += ((cowAnalysis.milkYield || 0) * config.milkMultiplier);
+      source = 'MILK_ADJUSTED';
     }
 
     if (cowAnalysis.pregnancyStage === 'THIRD TRIMESTER' && config.pregnancyTrimester3Multiplier > 0) {
@@ -520,6 +518,18 @@ router.get('/dashboard', auth, async (req, res) => {
       days90: inventoryPredictions.map(i => ({ type: i.feedStock.feedType, demand: i.dailyConsumption * 90 }))
     };
 
+    // Check if feed plan was already executed today
+    const startOfDay = new Date();
+    startOfDay.setUTCHours(0,0,0,0);
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(startOfDay.getDate() + 1);
+
+    const existingExecutions = await AnimalFeedRecord.findOne({ 
+      user: req.user.id, 
+      date: { $gte: startOfDay, $lt: endOfDay },
+      notes: 'Automated Daily Feed Execution'
+    });
+
     res.json({
       kpi: {
         ...kpi,
@@ -533,7 +543,8 @@ router.get('/dashboard', auth, async (req, res) => {
       farmForecast,
       efficiencyTrend,
       milkPriceStatus,
-      milkSellingPricePerLitre: milkPrice
+      milkSellingPricePerLitre: milkPrice,
+      planExecutedToday: !!existingExecutions
     });
   } catch (err) {
     console.error(err.message);
@@ -558,6 +569,152 @@ router.post('/override', auth, async (req, res) => {
     });
     await override.save();
     res.json({ message: 'Override saved successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+// @route   POST api/feed-optimization/execute-daily-plan
+// @desc    Execute the AI suggested daily feed plan and deduct inventory
+// @access  Private
+router.post('/execute-daily-plan', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // 1. Check if already executed today
+    const startOfDay = new Date();
+    startOfDay.setUTCHours(0,0,0,0);
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(startOfDay.getDate() + 1);
+
+    const existingExecutions = await AnimalFeedRecord.findOne({ 
+      user: userId, 
+      date: { $gte: startOfDay, $lt: endOfDay },
+      notes: 'Automated Daily Feed Execution'
+    });
+    
+    if (existingExecutions) {
+      return res.status(400).json({ msg: "Today's feed plan has already been executed." });
+    }
+
+    // 2. Fetch data required for calculation
+    const cows = await Livestock.find({ user: userId, status: { $nin: ['Sold', 'Deceased'] } });
+    if (cows.length === 0) {
+      return res.status(400).json({ msg: "No eligible animals found for today's feed plan." });
+    }
+
+    const breedingRecords = await BreedingRecord.find({ user: userId });
+    const medicalRecords = await MedicalRecord.find({ user: userId });
+    const milkLogs = await MilkLog.find({ user: userId });
+    const feedStocks = await FeedStock.find({ user: userId });
+    const overrides = await FeedPlanOverride.find({ user: userId });
+    const configs = await ensureDefaultConfigurations(userId);
+
+    // 3. Recalculate Feed Plan
+    let cowProfiles = [];
+    let todaysRequirement = {};
+    
+    for (let cow of cows) {
+      const cowBreeding = breedingRecords.filter(r => r.livestock.toString() === cow._id.toString());
+      const cowMedical = medicalRecords.filter(r => r.livestock.toString() === cow._id.toString());
+      const cowMilk = milkLogs.filter(r => r.livestock.toString() === cow._id.toString());
+
+      const analysis = classifyAnimal(cow, cowBreeding, cowMedical, cowMilk);
+      const { feedPlan } = calculateFeedPlan(analysis, configs, feedStocks, overrides, cow);
+
+      cowProfiles.push({ cow, feedPlan });
+
+      for (let item of feedPlan) {
+        if (!todaysRequirement[item.feedType]) {
+          todaysRequirement[item.feedType] = 0;
+        }
+        todaysRequirement[item.feedType] += item.suggestedQuantityKg;
+      }
+    }
+
+    // 4. Validate Inventory Safety
+    let shortages = [];
+    for (let stock of feedStocks) {
+      const required = todaysRequirement[stock.feedType] || 0;
+      if (required > 0 && required > stock.quantity) {
+        shortages.push({
+          feedType: stock.feedType,
+          required: parseFloat(required.toFixed(1)),
+          available: stock.quantity,
+          unit: stock.unit
+        });
+      }
+    }
+
+    if (shortages.length > 0) {
+      return res.status(400).json({ 
+        msg: 'Insufficient inventory to execute the daily feed plan.', 
+        shortages 
+      });
+    }
+
+    // 5. Execute Plan (Deduct Inventory & Log)
+    // Note: We use sequential saves to ensure data integrity without needing a MongoDB Replica Set for transactions
+    const FeedLog = require('../models/FeedLog');
+    let summary = [];
+
+    // Deduct stock and create FeedLog
+    for (let stock of feedStocks) {
+      const required = todaysRequirement[stock.feedType] || 0;
+      if (required > 0) {
+        const previousStock = stock.quantity;
+        stock.quantity -= required;
+        await stock.save();
+
+        const feedLog = new FeedLog({
+          user: userId,
+          feedStock: stock._id,
+          action: 'CONSUMPTION',
+          quantity: required,
+          previousStock: previousStock,
+          newStock: stock.quantity,
+          date: new Date(),
+          notes: 'Automated Daily Feed Execution'
+        });
+        await feedLog.save();
+
+        summary.push({
+          feedType: stock.feedType,
+          deducted: parseFloat(required.toFixed(1)),
+          remaining: parseFloat(stock.quantity.toFixed(1)),
+          unit: stock.unit
+        });
+      }
+    }
+
+    // Create AnimalFeedRecords
+    for (let profile of cowProfiles) {
+      for (let item of profile.feedPlan) {
+        if (item.suggestedQuantityKg > 0) {
+          const stock = feedStocks.find(s => s.feedType === item.feedType);
+          const record = new AnimalFeedRecord({
+            user: userId,
+            livestock: profile.cow._id,
+            feedStock: stock ? stock._id : null,
+            feedType: item.feedType,
+            quantityKg: item.suggestedQuantityKg,
+            cost: item.estimatedDailyCost,
+            date: new Date(),
+            notes: 'Automated Daily Feed Execution'
+          });
+          await record.save();
+        }
+      }
+    }
+
+    res.json({ 
+      msg: "Today's feed plan executed successfully.", 
+      summary,
+      cowsFed: cows.length
+    });
+
   } catch (err) {
     console.error(err);
     res.status(500).send('Server Error');

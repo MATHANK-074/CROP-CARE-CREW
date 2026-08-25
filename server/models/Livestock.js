@@ -58,7 +58,7 @@ const livestockSchema = new mongoose.Schema({
   },
   source: {
     type: String,
-    enum: ['Farm-born', 'Purchased', 'Other'],
+    enum: ['Farm-born', 'Farm-born (AI)', 'Purchased', 'Other'],
     default: 'Purchased'
   },
   motherTagId: {
